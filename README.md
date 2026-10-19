@@ -1,35 +1,20 @@
-This is a Kotlin Multiplatform project targeting Android, iOS.
+# Northstar KMP Trading Demo
 
-* [/iosApp](./iosApp/iosApp) contains an iOS application. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+Northstar is a Kotlin Multiplatform learning demo for the Indian market. It brings Discover, asset details, Portfolio, and Activity flows from the [native iOS sample](https://github.com/pk-debug/stocktradingios) to Android and iOS. Quotes and index values are illustrative; orders only affect an on-device demo account. Nothing connects to a broker, exchange, or live market-data service.
 
-* [/sharedLogic](./sharedLogic/src) is for the code that will be shared between app targets in the project.
-  The most important subfolder is [commonMain](./sharedLogic/src/commonMain/kotlin). If preferred, you
-  can add code to the platform-specific folders here too.
+## App structure
 
-* [/sharedUI](./sharedUI/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./sharedUI/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./sharedUI/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./sharedUI/src/jvmMain/kotlin)
-    folder is the appropriate location.
+- `androidApp` contains the native Android UI, written with Jetpack Compose.
+- `iosApp/iosApp` contains the native iOS UI, written with SwiftUI.
+- `sharedLogic/src/commonMain` contains the shared domain models, repository contract, order/search/portfolio use cases, and MVVM state holder.
+- `sharedLogic/src/androidMain` and `sharedLogic/src/iosMain` provide device-local ledger persistence.
 
-### Running the apps
+Both native UIs observe one shared `TradingViewModel`. Order validation and ledger updates happen in shared Kotlin. Market data is bundled locally; screen entry and button taps do not make network requests or refresh quotes. The demo account and order history are saved on-device (Android SharedPreferences and iOS UserDefaults), so they remain available offline and across app restarts.
 
-Use the run configurations provided by the run widget in your IDE's toolbar. You can also use these commands and options:
+## Run and test
 
-- Android app: `./gradlew :androidApp:assembleDebug`
-- iOS app: open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+- Android: `./gradlew :androidApp:assembleDebug`
+- Shared Kotlin tests: `./gradlew :sharedLogic:allTests`
+- iOS: open `iosApp` in Xcode and run the iOS target on a simulator or device.
 
-### Running tests
-
-Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
-
-- Android tests: `./gradlew :sharedUI:testAndroidHostTest :sharedLogic:testAndroidHostTest`
-- iOS tests: `./gradlew :sharedLogic:iosSimulatorArm64Test`
-
----
-
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+The starting account has ₹10,00,000 in sample cash and three illustrative holdings. Prices are fixed examples, not live or historical data. Orders are simulations only; this app is not investment advice.
