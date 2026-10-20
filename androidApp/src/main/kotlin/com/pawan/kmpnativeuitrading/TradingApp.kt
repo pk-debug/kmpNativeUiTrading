@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -48,15 +53,19 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pawan.kmpnativeuitrading.domain.model.MarketAsset
+import com.pawan.kmpnativeuitrading.domain.model.AuthState
 import com.pawan.kmpnativeuitrading.domain.model.MarketIndex
 import com.pawan.kmpnativeuitrading.domain.model.Position
 import com.pawan.kmpnativeuitrading.domain.model.SimulatedOrder
 import com.pawan.kmpnativeuitrading.domain.model.TradingState
 import com.pawan.kmpnativeuitrading.presentation.TradingStateObserver
 import com.pawan.kmpnativeuitrading.presentation.TradingViewModel
+import com.pawan.kmpnativeuitrading.presentation.AuthStateObserver
+import com.pawan.kmpnativeuitrading.presentation.AuthViewModel
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -70,7 +79,97 @@ private val Currency = NumberFormat.getCurrencyInstance(Locale("en", "IN")).appl
 }
 
 @Composable
-fun TradingApp(viewModel: TradingViewModel) {
+fun NorthstarApp(authViewModel: AuthViewModel, tradingViewModel: TradingViewModel) {
+    val authState = remember(authViewModel) { mutableStateOf(authViewModel.state) }
+    DisposableEffect(authViewModel) {
+        val observer = object : AuthStateObserver {
+            override fun onAuthStateChanged(state: AuthState) {
+                authState.value = state
+            }
+        }
+        val observerId = authViewModel.addObserver(observer)
+        onDispose { authViewModel.removeObserver(observerId) }
+    }
+    if (authState.value.isLoggedIn) {
+        TradingApp(tradingViewModel, authViewModel::signOut)
+    } else {
+        LoginScreen(authViewModel, authState.value)
+    }
+}
+
+@Composable
+private fun LoginScreen(authViewModel: AuthViewModel, authState: AuthState) {
+    var phoneNumber by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(authState.errorMessage) }
+
+    MaterialTheme(
+        colorScheme = MaterialTheme.colorScheme.copy(
+            primary = Green,
+            background = BackgroundColor,
+            surface = Color.White,
+            onBackground = Ink,
+            onSurface = Ink,
+        ),
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize().background(BackgroundColor).padding(24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().widthIn(max = 440.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text("NORTHSTAR", color = Green, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
+                Text("Welcome back", color = Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                Text("Sign in to your demo trading account.", color = Muted)
+                Spacer(Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = phoneNumber,
+                    onValueChange = { phoneNumber = it; errorMessage = null },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Phone number") },
+                    placeholder = { Text("+91 98765 43210") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it; errorMessage = null },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Password") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                )
+                errorMessage?.let {
+                    Text(it, color = Red, fontSize = 13.sp)
+                }
+                Button(
+                    onClick = {
+                        val result = authViewModel.login(phoneNumber, password)
+                        errorMessage = if (result.success) null else result.message
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Text("Sign in", fontWeight = FontWeight.SemiBold)
+                }
+                HorizontalDivider(color = Color(0xFFE4E9E6))
+                Text(
+                    "Demo sign-in only. Use any phone number with 10–15 digits and a password of at least 8 characters. No password is stored.",
+                    color = Muted,
+                    fontSize = 12.sp,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun TradingApp(viewModel: TradingViewModel, onSignOut: () -> Unit) {
     val stateHolder = remember(viewModel) { mutableStateOf(viewModel.state) }
     var selectedTab by remember { mutableStateOf(0) }
     var selectedAsset by remember { mutableStateOf<MarketAsset?>(null) }
@@ -104,6 +203,16 @@ fun TradingApp(viewModel: TradingViewModel) {
         Scaffold(
             containerColor = BackgroundColor,
             snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                Row(
+                    Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 20.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("NORTHSTAR", color = Green, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = onSignOut) { Text("Sign out") }
+                }
+            },
             bottomBar = {
                 NavigationBar(containerColor = Color.White) {
                     listOf("Discover", "Portfolio", "Activity").forEachIndexed { index, label ->
