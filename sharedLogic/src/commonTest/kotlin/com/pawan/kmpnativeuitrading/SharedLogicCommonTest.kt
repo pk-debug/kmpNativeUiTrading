@@ -4,10 +4,14 @@ import com.pawan.kmpnativeuitrading.data.DefaultTradingRepository
 import com.pawan.kmpnativeuitrading.domain.model.OrderSide
 import com.pawan.kmpnativeuitrading.domain.model.TradingLedger
 import com.pawan.kmpnativeuitrading.domain.repository.LedgerStorage
+import com.pawan.kmpnativeuitrading.domain.repository.SessionRepository
+import com.pawan.kmpnativeuitrading.domain.usecase.DemoLoginResult
+import com.pawan.kmpnativeuitrading.domain.usecase.DemoLoginUseCase
 import com.pawan.kmpnativeuitrading.domain.usecase.CalculatePortfolioUseCase
 import com.pawan.kmpnativeuitrading.domain.usecase.OrderExecution
 import com.pawan.kmpnativeuitrading.domain.usecase.PlaceOrderUseCase
 import com.pawan.kmpnativeuitrading.domain.usecase.SearchAssetsUseCase
+import com.pawan.kmpnativeuitrading.presentation.AuthViewModel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -21,6 +25,52 @@ class SharedLogicCommonTest {
         override fun writeLedger(value: String) {
             this.value = value
         }
+    }
+
+    private class MemorySessionRepository : SessionRepository {
+        var phoneNumber: String? = null
+        override fun loadPhoneNumber(): String? = phoneNumber
+        override fun savePhoneNumber(phoneNumber: String) {
+            this.phoneNumber = phoneNumber
+        }
+        override fun clearSession() {
+            phoneNumber = null
+        }
+    }
+
+    @Test
+    fun demoLoginValidatesPhoneAndPasswordWithoutSavingPassword() {
+        val sessionRepository = MemorySessionRepository()
+        val login = DemoLoginUseCase(sessionRepository)
+
+        val invalidPhone = login("12abc", "passphrase")
+        val shortPhone = login("123456789", "passphrase")
+        val shortPassword = login("+91 98765 43210", "short")
+        val success = login(" +91 98765 43210 ", "demo-passphrase")
+
+        assertIs<DemoLoginResult.Rejected>(invalidPhone)
+        assertIs<DemoLoginResult.Rejected>(shortPhone)
+        assertIs<DemoLoginResult.Rejected>(shortPassword)
+        assertEquals(
+            DemoLoginResult.Accepted("+91 98765 43210"),
+            success,
+        )
+        assertEquals("+91 98765 43210", sessionRepository.loadPhoneNumber())
+    }
+
+    @Test
+    fun demoSessionRestoresAndSignOutClearsTheSavedPhone() {
+        val sessionRepository = MemorySessionRepository()
+        val loginViewModel = AuthViewModel(sessionRepository)
+        val result = loginViewModel.login("+91 98765 43210", "demo-passphrase")
+
+        assertEquals(true, result.success)
+        assertEquals(true, AuthViewModel(sessionRepository).state.isLoggedIn)
+
+        loginViewModel.signOut()
+
+        assertEquals(false, loginViewModel.state.isLoggedIn)
+        assertEquals(null, sessionRepository.loadPhoneNumber())
     }
 
     @Test

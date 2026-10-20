@@ -117,7 +117,10 @@ private fun LoginScreen(authViewModel: AuthViewModel, authState: AuthState) {
             contentAlignment = Alignment.Center,
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth().widthIn(max = 440.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 440.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Text("NORTHSTAR", color = Green, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)

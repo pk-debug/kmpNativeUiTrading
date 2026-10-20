@@ -11,6 +11,8 @@ Northstar is a Kotlin Multiplatform learning demo for the Indian market. It brin
 
 Both native UIs observe one shared `TradingViewModel`. Order validation and ledger updates happen in shared Kotlin. Market data is bundled locally; screen entry and button taps do not make network requests or refresh quotes. The demo account and order history are saved on-device (Android SharedPreferences and iOS UserDefaults), so they remain available offline and across app restarts.
 
+The app starts with a phone-and-password demo login. Enter a phone number containing 10–15 digits and any password of at least 8 characters. This is not real authentication: credentials are not sent to a server, and only the phone number is stored locally to restore the demo session. Sign out clears that local session. Do not use a real password.
+
 ## Run and test
 
 - Android: `./gradlew :androidApp:assembleDebug`
