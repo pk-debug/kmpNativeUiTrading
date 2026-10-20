@@ -33,32 +33,69 @@ private final class TradingObservableModel: NSObject, ObservableObject, TradingS
     }
 }
 
+private final class AuthObservableModel: NSObject, ObservableObject, AuthStateObserver {
+    @Published private(set) var state: AuthState
+    let viewModel: AuthViewModel
+    private var observerId: Int64 = 0
+
+    override init() {
+        viewModel = AuthSessionStorageKt.createAuthViewModel()
+        state = viewModel.state
+        super.init()
+        observerId = viewModel.addObserver(observer: self)
+    }
+
+    func onAuthStateChanged(state: AuthState) {
+        DispatchQueue.main.async {
+            self.state = state
+        }
+    }
+
+    deinit {
+        viewModel.removeObserver(id: observerId)
+    }
+}
+
 struct ContentView: View {
     @StateObject private var model = TradingObservableModel()
+    @StateObject private var authModel = AuthObservableModel()
     @State private var selectedTab = 0
     @State private var selectedSymbol: String?
 
     var body: some View {
+        Group {
+            if authModel.state.isLoggedIn {
+                tradingTabs
+            } else {
+                LoginScreen(model: authModel)
+            }
+        }
+        .tint(TradingPalette.green)
+    }
+
+    private var tradingTabs: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
                 DiscoverScreen(model: model, onSelect: { selectedSymbol = $0 })
             }
+            .toolbar { signOutButton }
             .tabItem { Label("Discover", systemImage: "magnifyingglass") }
             .tag(0)
 
             NavigationStack {
                 PortfolioScreen(model: model, onSelect: { selectedSymbol = $0 })
             }
+            .toolbar { signOutButton }
             .tabItem { Label("Portfolio", systemImage: "chart.pie") }
             .tag(1)
 
             NavigationStack {
                 ActivityScreen(state: model.state)
             }
+            .toolbar { signOutButton }
             .tabItem { Label("Activity", systemImage: "clock.arrow.circlepath") }
             .tag(2)
         }
-        .tint(TradingPalette.green)
         .sheet(isPresented: Binding(
             get: { selectedSymbol != nil },
             set: { if !$0 { selectedSymbol = nil } }
@@ -70,6 +107,80 @@ struct ContentView: View {
                 )
             }
         }
+    }
+
+    @ToolbarContentBuilder
+    private var signOutButton: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button("Sign out") {
+                authModel.viewModel.signOut()
+            }
+        }
+    }
+}
+
+private struct LoginScreen: View {
+    @ObservedObject var model: AuthObservableModel
+    @State private var phoneNumber = ""
+    @State private var password = ""
+    @State private var errorMessage: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Spacer()
+            Text("NORTHSTAR")
+                .font(.caption.weight(.bold))
+                .tracking(1.6)
+                .foregroundStyle(TradingPalette.green)
+            Text("Welcome back")
+                .font(.largeTitle.bold())
+                .foregroundStyle(TradingPalette.ink)
+            Text("Sign in to your demo trading account.")
+                .font(.subheadline)
+                .foregroundStyle(TradingPalette.muted)
+
+            TextField("Phone number", text: $phoneNumber)
+                .keyboardType(.phonePad)
+                .textContentType(.telephoneNumber)
+                .textInputAutocapitalization(.never)
+                .padding(14)
+                .background(.white, in: RoundedRectangle(cornerRadius: 14))
+
+            SecureField("Password", text: $password)
+                .textContentType(.password)
+                .padding(14)
+                .background(.white, in: RoundedRectangle(cornerRadius: 14))
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(TradingPalette.red)
+            }
+
+            Button {
+                let result = model.viewModel.login(
+                    phoneNumber: phoneNumber,
+                    password: password
+                )
+                errorMessage = result.success ? nil : result.message
+            } label: {
+                Text("Sign in")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(TradingPalette.green, in: RoundedRectangle(cornerRadius: 14))
+            }
+
+            Text("Demo sign-in only. Use any phone number with 10–15 digits and a password of at least 8 characters. No password is stored.")
+                .font(.caption)
+                .foregroundStyle(TradingPalette.muted)
+            Spacer()
+        }
+        .padding(24)
+        .frame(maxWidth: 480)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(TradingPalette.canvas.ignoresSafeArea())
     }
 }
 
