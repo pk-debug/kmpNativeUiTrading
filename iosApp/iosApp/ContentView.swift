@@ -126,60 +126,59 @@ private struct LoginScreen: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Spacer()
-            Text("NORTHSTAR")
-                .font(.caption.weight(.bold))
-                .tracking(1.6)
-                .foregroundStyle(TradingPalette.green)
-            Text("Welcome back")
-                .font(.largeTitle.bold())
-                .foregroundStyle(TradingPalette.ink)
-            Text("Sign in to your demo trading account.")
-                .font(.subheadline)
-                .foregroundStyle(TradingPalette.muted)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                Text("NORTHSTAR")
+                    .font(.caption.weight(.bold))
+                    .tracking(1.6)
+                    .foregroundStyle(TradingPalette.green)
+                Text("Welcome back")
+                    .font(.largeTitle.bold())
+                    .foregroundStyle(TradingPalette.ink)
+                Text("Sign in to your demo trading account.")
+                    .font(.subheadline)
+                    .foregroundStyle(TradingPalette.muted)
 
-            TextField("Phone number", text: $phoneNumber)
-                .keyboardType(.phonePad)
-                .textContentType(.telephoneNumber)
-                .textInputAutocapitalization(.never)
-                .padding(14)
-                .background(.white, in: RoundedRectangle(cornerRadius: 14))
+                TextField("Phone number", text: $phoneNumber)
+                    .keyboardType(.phonePad)
+                    .textContentType(.telephoneNumber)
+                    .textInputAutocapitalization(.never)
+                    .padding(14)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 14))
 
-            SecureField("Password", text: $password)
-                .textContentType(.password)
-                .padding(14)
-                .background(.white, in: RoundedRectangle(cornerRadius: 14))
+                SecureField("Password", text: $password)
+                    .textContentType(.password)
+                    .padding(14)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 14))
 
-            if let errorMessage {
-                Text(errorMessage)
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(TradingPalette.red)
+                }
+
+                Button {
+                    let result = model.viewModel.login(
+                        phoneNumber: phoneNumber,
+                        password: password
+                    )
+                    errorMessage = result.success ? nil : result.message
+                } label: {
+                    Text("Sign in")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
+                        .background(TradingPalette.green, in: RoundedRectangle(cornerRadius: 14))
+                }
+
+                Text("Demo sign-in only. Use any phone number with 10–15 digits and a password of at least 8 characters. No password is stored.")
                     .font(.caption)
-                    .foregroundStyle(TradingPalette.red)
+                    .foregroundStyle(TradingPalette.muted)
             }
-
-            Button {
-                let result = model.viewModel.login(
-                    phoneNumber: phoneNumber,
-                    password: password
-                )
-                errorMessage = result.success ? nil : result.message
-            } label: {
-                Text("Sign in")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
-                    .background(TradingPalette.green, in: RoundedRectangle(cornerRadius: 14))
-            }
-
-            Text("Demo sign-in only. Use any phone number with 10–15 digits and a password of at least 8 characters. No password is stored.")
-                .font(.caption)
-                .foregroundStyle(TradingPalette.muted)
-            Spacer()
+            .padding(24)
+            .frame(maxWidth: 480)
         }
-        .padding(24)
-        .frame(maxWidth: 480)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(TradingPalette.canvas.ignoresSafeArea())
     }
 }
