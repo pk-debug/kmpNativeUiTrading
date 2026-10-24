@@ -39,11 +39,11 @@ class AuthViewModel(
         return when (val result = demoLogin(phoneNumber, password)) {
             is DemoLoginResult.Accepted -> {
                 updateState(AuthState(result.phoneNumber, null))
-                LoginResult(true, "Demo login successful.")
+                LoginResult(success = true, message = "login successful.")
             }
             is DemoLoginResult.Rejected -> {
                 updateState(currentState.copy(errorMessage = result.message))
-                LoginResult(false, result.message)
+                LoginResult(success = false, message = result.message)
             }
         }
     }
