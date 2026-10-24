@@ -62,14 +62,14 @@ class SharedLogicCommonTest {
     fun demoSessionRestoresAndSignOutClearsTheSavedPhone() {
         val sessionRepository = MemorySessionRepository()
         val loginViewModel = AuthViewModel(sessionRepository)
-        val result = loginViewModel.login("+91 98765 43210", "demo-passphrase")
+        val (success) = loginViewModel.login("+91 98765 43210", "demo-passphrase")
 
-        assertEquals(true, result.success)
-        assertEquals(true, AuthViewModel(sessionRepository).state.isLoggedIn)
+        assertEquals(expected = true, actual = success)
+        assertEquals(expected = true, actual = AuthViewModel(sessionRepository).state.isLoggedIn)
 
         loginViewModel.signOut()
 
-        assertEquals(false, loginViewModel.state.isLoggedIn)
+        assertEquals(expected = false, actual = loginViewModel.state.isLoggedIn)
         assertEquals(null, sessionRepository.loadPhoneNumber())
     }
 
@@ -79,12 +79,12 @@ class SharedLogicCommonTest {
 
         val result = PlaceOrderUseCase(repository) { 123L }("RELIANCE", OrderSide.BUY, 1)
 
-        val accepted = assertIs<OrderExecution.Accepted>(result)
-        assertEquals(998_715.50, accepted.ledger.cash)
-        assertEquals(9, accepted.ledger.positions.first { it.symbol == "RELIANCE" }.quantity)
-        assertEquals(1_218.50, accepted.ledger.positions.first { it.symbol == "RELIANCE" }.averageCost)
-        assertEquals(1, accepted.ledger.orders.size)
-        assertEquals(123L, accepted.ledger.orders.first().createdAtMillis)
+        val (ledger) = assertIs<OrderExecution.Accepted>(result)
+        assertEquals(998_715.50, ledger.cash)
+        assertEquals(9, ledger.positions.first { (symbol) -> symbol == "RELIANCE" }.quantity)
+        assertEquals(1_218.50, ledger.positions.first { (symbol) -> symbol == "RELIANCE" }.averageCost)
+        assertEquals(1, ledger.orders.size)
+        assertEquals(123L, ledger.orders.first().createdAtMillis)
     }
 
     @Test
@@ -93,10 +93,10 @@ class SharedLogicCommonTest {
 
         val result = PlaceOrderUseCase(repository) { 456L }("HDFCBANK", OrderSide.SELL, 12)
 
-        val accepted = assertIs<OrderExecution.Accepted>(result)
-        assertEquals(1_021_220.80, accepted.ledger.cash)
-        assertEquals(false, accepted.ledger.positions.any { it.symbol == "HDFCBANK" })
-        assertEquals(OrderSide.SELL, accepted.ledger.orders.first().side)
+        val (ledger) = assertIs<OrderExecution.Accepted>(result)
+        assertEquals(1_021_220.80, ledger.cash)
+        assertEquals(expected = false, actual = ledger.positions.any { (symbol) -> symbol == "HDFCBANK" })
+        assertEquals(OrderSide.SELL, ledger.orders.first().side)
     }
 
     @Test
@@ -133,14 +133,14 @@ class SharedLogicCommonTest {
     @Test
     fun searchAndPortfolioCalculationsMatchSampleMarket() {
         val repository = DefaultTradingRepository(MemoryLedgerStorage())
-        val ledger = repository.loadLedger()
-        val summary = CalculatePortfolioUseCase()(ledger.positions)
+        val (_, positions) = repository.loadLedger()
+        val (marketValue, investedValue, gainLoss) = CalculatePortfolioUseCase()(positions)
 
-        assertEquals(listOf("HDFCBANK"), SearchAssetsUseCase()("hdfc").map { it.symbol })
+        assertEquals(listOf("HDFCBANK"), SearchAssetsUseCase()("hdfc").map { (symbol) -> symbol })
         assertEquals(7, SearchAssetsUseCase()("").size)
-        assertEquals(41_945.05, summary.marketValue)
-        assertEquals(39_631.00, summary.investedValue)
-        assertTrue(abs(summary.gainLoss - 2_314.05) < 0.001)
+        assertEquals(41_945.05, marketValue)
+        assertEquals(39_631.00, investedValue)
+        assertTrue(abs(gainLoss - 2_314.05) < 0.001)
     }
 
     @Test
