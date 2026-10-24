@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -42,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -74,7 +74,7 @@ private val Muted = Color(0xFF71817D)
 private val Green = Color(0xFF138A63)
 private val Red = Color(0xFFD45656)
 private val BackgroundColor = Color(0xFFF5F7F5)
-private val Currency = NumberFormat.getCurrencyInstance(Locale("en", "IN")).apply {
+private val Currency = NumberFormat.getCurrencyInstance(Locale.Builder().setLanguage("en").setRegion("IN").build()).apply {
     maximumFractionDigits = 2
 }
 
@@ -101,7 +101,7 @@ fun NorthstarApp(authViewModel: AuthViewModel, tradingViewModel: TradingViewMode
 private fun LoginScreen(authViewModel: AuthViewModel, authState: AuthState) {
     var phoneNumber by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf<String?>(authState.errorMessage) }
+    var errorMessage by remember { mutableStateOf(authState.errorMessage) }
 
     MaterialTheme(
         colorScheme = MaterialTheme.colorScheme.copy(
@@ -152,8 +152,8 @@ private fun LoginScreen(authViewModel: AuthViewModel, authState: AuthState) {
                 }
                 Button(
                     onClick = {
-                        val result = authViewModel.login(phoneNumber, password)
-                        errorMessage = if (result.success) null else result.message
+                        val (success, message) = authViewModel.login(phoneNumber, password)
+                        errorMessage = if (success) null else message
                     },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(14.dp),
@@ -174,7 +174,7 @@ private fun LoginScreen(authViewModel: AuthViewModel, authState: AuthState) {
 @Composable
 fun TradingApp(viewModel: TradingViewModel, onSignOut: () -> Unit) {
     val stateHolder = remember(viewModel) { mutableStateOf(viewModel.state) }
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(0) }
     var selectedAsset by remember { mutableStateOf<MarketAsset?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -251,8 +251,7 @@ fun TradingApp(viewModel: TradingViewModel, onSignOut: () -> Unit) {
             asset = asset,
             state = stateHolder.value,
             onDismiss = { selectedAsset = null },
-            onOrder = { isBuy, quantity -> viewModel.placeOrder(asset.symbol, isBuy, quantity) },
-        )
+        ) { isBuy, quantity -> viewModel.placeOrder(asset.symbol, isBuy, quantity) }
     }
 }
 
@@ -302,8 +301,8 @@ private fun DiscoverScreen(
         if (state.filteredAssets.isEmpty()) {
             item { Text("No sample stocks match your search.", color = Muted, modifier = Modifier.padding(12.dp)) }
         }
-        items(state.filteredAssets, key = { it.symbol }) { asset ->
-            AssetRow(asset, onClick = { onAssetSelected(asset) })
+        items(state.filteredAssets, key = MarketAsset::symbol) { asset ->
+            AssetRow(asset) { onAssetSelected(asset) }
         }
         item { DemoDisclaimer() }
     }
@@ -350,9 +349,9 @@ private fun PortfolioScreen(
         if (state.positions.isEmpty()) {
             item { EmptyMessage("No holdings yet. Explore stocks to simulate a buy.") }
         }
-        items(state.positions, key = { it.symbol }) { position ->
-            val asset = state.assets.firstOrNull { it.symbol == position.symbol }
-            if (asset != null) PositionRow(position, asset, onClick = { onAssetSelected(asset) })
+        items(state.positions, key = Position::symbol) { position ->
+            val asset = state.assets.firstOrNull { (symbol) -> symbol == position.symbol }
+            asset?.let { PositionRow(position, it) { onAssetSelected(it) } }
         }
         item { DemoDisclaimer() }
     }
@@ -372,7 +371,7 @@ private fun ActivityScreen(orders: List<SimulatedOrder>, modifier: Modifier = Mo
         if (orders.isEmpty()) {
             item { EmptyMessage("Your completed demo orders will appear here.") }
         }
-        items(orders, key = { it.id }) { order -> OrderRow(order) }
+        items(orders, key = SimulatedOrder::id) { order -> OrderRow(order) }
         item { DemoDisclaimer() }
     }
 }
@@ -485,7 +484,7 @@ private fun SymbolBadge(symbol: String) {
 
 @Composable
 private fun BoxCentered(content: @Composable () -> Unit) {
-    androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center, content = { content() })
+    Box(contentAlignment = Alignment.Center) { content() }
 }
 
 @Composable
@@ -549,7 +548,7 @@ private fun AssetDetailDialog(
                 Button(
                     onClick = {
                         val count = quantity.toIntOrNull()
-                        if (count == null || count < 1) validation = "Enter at least one whole share."
+                        if ((count == null) || (count < 1)) validation = "Enter at least one whole share."
                         else {
                             onOrder(true, count)
                             onDismiss()
@@ -560,7 +559,7 @@ private fun AssetDetailDialog(
                 Button(
                     onClick = {
                         val count = quantity.toIntOrNull()
-                        if (count == null || count < 1) validation = "Enter at least one whole share."
+                        if ((count == null) || (count < 1)) validation = "Enter at least one whole share."
                         else {
                             onOrder(false, count)
                             onDismiss()
@@ -583,8 +582,8 @@ private fun PriceChart(values: List<Double>, positive: Boolean) {
         val range = (values.maxOrNull() ?: min) - min
         val path = Path()
         values.forEachIndexed { index, value ->
-            val x = size.width * index / (values.lastIndex)
-            val y = size.height - if (range == 0.0) 0f else ((value - min) / range * size.height).toFloat()
+            val x = (size.width * index) / values.lastIndex
+            val y = size.height - if (range == 0.0) 0f else (((value - min) / range) * size.height).toFloat()
             if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
         drawPath(path, lineColor, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
