@@ -17,7 +17,7 @@ interface TradingStateObserver {
 }
 
 class TradingViewModel(
-    private val repository: TradingRepository,
+    repository: TradingRepository,
     currentTimeMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
     private val searchAssets = SearchAssetsUseCase()
@@ -55,12 +55,12 @@ class TradingViewModel(
                 val message = "Demo ${if (isBuy) "buy" else "sale"} completed: $quantity ${if (quantity == 1) "share" else "shares"} of ${symbol.uppercase()}."
                 lastMessage = message
                 publish()
-                OrderResult(true, message)
+                OrderResult(accepted = true, message = message)
             }
             is OrderExecution.Rejected -> {
                 lastMessage = result.reason
                 publish()
-                OrderResult(false, result.reason)
+                OrderResult(accepted = false, message = result.reason)
             }
         }
     }
