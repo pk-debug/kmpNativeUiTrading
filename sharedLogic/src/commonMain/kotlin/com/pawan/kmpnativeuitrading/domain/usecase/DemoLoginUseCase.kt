@@ -7,7 +7,7 @@ class DemoLoginUseCase(
 ) {
     operator fun invoke(phoneNumber: String, password: String): DemoLoginResult {
         val normalizedPhone = phoneNumber.trim()
-        if (!normalizedPhone.all { it in '0'..'9' || it in "+ ()-" }) {
+        if (!normalizedPhone.all { ch -> ((ch in '0'..'9') || (ch in "+ ()-")) }) {
             return DemoLoginResult.Rejected("Enter a valid phone number.")
         }
 

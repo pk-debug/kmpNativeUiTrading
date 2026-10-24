@@ -22,13 +22,13 @@ class PlaceOrderUseCase(
         }
 
         val ledger = repository.loadLedger()
-        val positionIndex = ledger.positions.indexOfFirst { it.symbol == asset.symbol }
+        val positionIndex = ledger.positions.indexOfFirst { (sym) -> sym == asset.symbol }
         val orderValue = roundToCents(asset.price * quantity)
-        if (side == OrderSide.BUY && orderValue > ledger.cash) {
+        if ((side == OrderSide.BUY) && (orderValue > ledger.cash)) {
             return OrderExecution.Rejected("There is not enough demo cash for this order.")
         }
-        if (side == OrderSide.SELL &&
-            (positionIndex < 0 || quantity > ledger.positions[positionIndex].quantity)
+        if ((side == OrderSide.SELL) &&
+            ((positionIndex < 0) || (quantity > ledger.positions[positionIndex].quantity))
         ) {
             return OrderExecution.Rejected("You do not own enough shares for this demo sale.")
         }
