@@ -4,7 +4,7 @@ Validated in the Linux cloud workspace. No public backend deployment, store subm
 
 | Check | Outcome |
 |---|---|
-| API tests (`pytest server/tests`) | 11 passed |
+| API tests (`pytest paper-trading-api/tests` in the backend repository) | 11 passed |
 | Shared Android host tests (`testAndroidHostTest`) | 16 executed, zero failures/errors/skips, including the real HTTP contract journey |
 | Android offline debug APK | Built successfully |
 | Android API/emulator debug APK | Built with `apiOrigin=http://10.0.2.2:8000` |
@@ -37,3 +37,8 @@ Under the checkout's ignored `build/artifacts/` directory:
 - `northstar-offline-release-unsigned.aab`: release bundle for inspection; supply the documented upload signing configuration before Play upload.
 
 See `docs/RELEASE.md` for device QA, hosting, signing, privacy disclosures, store accounts and submission requirements. These artifacts do not establish store readiness or competitor feature parity.
+
+
+## Backend repository separation — 29 October 2026
+
+The service was moved to `northstar-backend-lab/paper-trading-api` without changing its API behavior. Python tests/auditing belong to that repository; the mobile workflow pins the backend commit for its HTTP contract test. Local cloud installation/start instructions use the sibling backend checkout. The original five v1 lab implementations were preserved.

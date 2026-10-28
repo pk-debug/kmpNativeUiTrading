@@ -31,3 +31,6 @@ __pycache__/
 .pytest_cache/
 .venv/
 .DerivedData/
+
+# Local copy of the external backend used by mobile CI
+.backend/

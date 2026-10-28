@@ -7,7 +7,7 @@ A portfolio and interview project with native Jetpack Compose and SwiftUI screen
 - **Offline demo:** no signup or password. Holdings, orders and watchlist stay on the device. Start with ₹10 lakh and illustrative holdings.
 - **API paper account:** register with a username and 12+ character password. Each account starts empty with ₹10 lakh. The server owns balances, checks holdings, persists transactions and prevents duplicate orders. Tokens stay in memory; restarting asks you to sign in again. Unconfirmed orders are explicitly retried with their original UUID, including after a restart.
 
-Both modes use INR fixtures. The original backend lab has USD fixtures and a shared account; do not connect its unsecured `/api/v1` ledger to a public release. This repository's `server/` preserves its asset/order shapes while introducing authenticated `/api/v2` account isolation. See [API differences](docs/API.md).
+Both modes use INR fixtures. The original backend lab has USD fixtures and a shared account; do not connect its unsecured `/api/v1` ledger to a public release. The backend now lives in [northstar-backend-lab/paper-trading-api](https://github.com/pk-debug/northstar-backend-lab/tree/7bac27ca60fe799a40ec9a11bec7b04d8ff78317/paper-trading-api), preserving the asset/order shapes while introducing authenticated `/api/v2` account isolation. See [API differences](docs/API.md).
 
 ## Run
 
@@ -17,17 +17,23 @@ Install **JDK 21 (including javac)**, Android SDK platform `37.0`, build tools `
 # Offline Android
 ./gradlew :androidApp:assembleDebug :sharedLogic:testAndroidHostTest
 
-# Authenticated API (a Python 3.12 virtual environment is recommended)
+# Authenticated API in the backend repository (Python 3.12)
+# Clone beside this app if it is not already checked out:
+git clone https://github.com/pk-debug/northstar-backend-lab.git ../northstar-backend-lab
+cd ../northstar-backend-lab
+# Until the backend change is merged, select its integration branch:
+git switch codex/authenticated-paper-api
 python -m venv .venv
 . .venv/bin/activate
-pip install -r server/requirements.lock
-NORTHSTAR_DB=/tmp/northstar.sqlite3 uvicorn app.main:app --app-dir server --host 127.0.0.1 --port 8000 --no-access-log
+pip install -r paper-trading-api/requirements.lock
+NORTHSTAR_DB=/tmp/northstar.sqlite3 uvicorn app.main:app --app-dir paper-trading-api --host 127.0.0.1 --port 8000 --no-access-log
 
+# In another terminal, from the mobile app checkout:
 # Android emulator -> host machine, DEBUG ONLY
 ./gradlew :androidApp:assembleDebug -PapiOrigin=http://10.0.2.2:8000
 
-# Backend tests, each test creates a fresh temporary database
-PYTHONPATH=server NORTHSTAR_DB=/tmp/northstar-bootstrap.sqlite3 pytest -q server/tests
+# From the backend checkout with its virtual environment activated:
+PYTHONPATH=paper-trading-api NORTHSTAR_DB=/tmp/northstar-bootstrap.sqlite3 pytest -q paper-trading-api/tests
 ```
 
 For a physical device or release build use a reachable **HTTPS** API origin, e.g. `-PapiOrigin=https://your-api.example`. Never put broker keys in a mobile build. Omitting `apiOrigin` selects offline demo mode.
@@ -44,8 +50,8 @@ For a physical device or release build use a reachable **HTTPS** API origin, e.g
 | `sharedLogic/…/network/` | HTTPS client, account DTOs, timeout and durable retry protocol |
 | `sharedLogic/…/presentation/` | Shared screen state and session composition root |
 | `sharedLogic/…/broker/` | Future adapter contract and explicit live-execution rejection |
-| `server/` | Isolated paper accounts, exact-money ledger, session authentication and tests |
-| `.github/workflows/quality.yml` | API tests, Android artifacts and macOS build gates |
+| [northstar-backend-lab/paper-trading-api](https://github.com/pk-debug/northstar-backend-lab/tree/7bac27ca60fe799a40ec9a11bec7b04d8ff78317/paper-trading-api) | Separate repository: isolated accounts, ledger, sessions and API tests |
+| `.github/workflows/quality.yml` | Android artifacts, pinned external-backend contract test and macOS build gates |
 
 ## Engineering and release guides
 
