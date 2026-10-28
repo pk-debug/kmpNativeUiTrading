@@ -42,3 +42,11 @@ See `docs/RELEASE.md` for device QA, hosting, signing, privacy disclosures, stor
 ## Backend repository separation — 29 October 2026
 
 The service was moved to `northstar-backend-lab/paper-trading-api` without changing its API behavior. Python tests/auditing belong to that repository; the mobile workflow pins the backend commit for its HTTP contract test. Local cloud installation/start instructions use the sibling backend checkout. The original five v1 lab implementations were preserved.
+
+## Feature architecture and performance hardening — 29 October 2026
+
+The shared code is now organized into auth/trading features with pure domain gateway interfaces, separate data implementations and MVVM presentation. Android auth/trading UI has separate feature packages. A source-documentation and domain-boundary check passes for 41 Kotlin/Swift source files.
+
+The host suite now executes 17 tests, including regression assertions that retry-state reads do not touch storage, search reuses portfolio valuation, and local history retains only the latest 500 entries. The moved backend's 11 tests also pass. A loopback-only read-load probe and debug-only Android frame-duration diagnostics are included; the device collector has not been exercised on a phone.
+
+`docs/PERFORMANCE.md` records the local catalog-only probe and its limitations. No 50K-DAU capacity, 100M-user capacity or zero-jank guarantee was established. There is no deployed environment or mobile-store build available for production/device measurements. iOS feature/package integration still requires a Mac/Xcode build and device QA.

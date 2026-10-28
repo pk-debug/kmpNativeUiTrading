@@ -1,17 +1,20 @@
+/**
+ * Verifies SharedLogicCommon behavior with repeatable assertions. Test fixtures are practice data and do not authorize real trading.
+ */
 package com.pawan.kmpnativeuitrading
 
-import com.pawan.kmpnativeuitrading.data.DefaultTradingRepository
-import com.pawan.kmpnativeuitrading.domain.model.OrderSide
-import com.pawan.kmpnativeuitrading.domain.model.TradingLedger
-import com.pawan.kmpnativeuitrading.domain.repository.LedgerStorage
-import com.pawan.kmpnativeuitrading.domain.repository.SessionRepository
-import com.pawan.kmpnativeuitrading.domain.usecase.DemoLoginResult
-import com.pawan.kmpnativeuitrading.domain.usecase.DemoLoginUseCase
-import com.pawan.kmpnativeuitrading.domain.usecase.CalculatePortfolioUseCase
-import com.pawan.kmpnativeuitrading.domain.usecase.OrderExecution
-import com.pawan.kmpnativeuitrading.domain.usecase.PlaceOrderUseCase
-import com.pawan.kmpnativeuitrading.domain.usecase.SearchAssetsUseCase
-import com.pawan.kmpnativeuitrading.presentation.AuthViewModel
+import com.pawan.kmpnativeuitrading.features.trading.data.local.DefaultTradingRepository
+import com.pawan.kmpnativeuitrading.features.trading.domain.model.OrderSide
+import com.pawan.kmpnativeuitrading.features.trading.domain.model.TradingLedger
+import com.pawan.kmpnativeuitrading.features.trading.domain.repository.LedgerStorage
+import com.pawan.kmpnativeuitrading.features.auth.domain.repository.SessionRepository
+import com.pawan.kmpnativeuitrading.features.auth.domain.usecase.DemoLoginResult
+import com.pawan.kmpnativeuitrading.features.auth.domain.usecase.DemoLoginUseCase
+import com.pawan.kmpnativeuitrading.features.trading.domain.usecase.CalculatePortfolioUseCase
+import com.pawan.kmpnativeuitrading.features.trading.domain.usecase.OrderExecution
+import com.pawan.kmpnativeuitrading.features.trading.domain.usecase.PlaceOrderUseCase
+import com.pawan.kmpnativeuitrading.features.trading.domain.usecase.SearchAssetsUseCase
+import com.pawan.kmpnativeuitrading.features.auth.presentation.AuthViewModel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -152,5 +155,21 @@ class SharedLogicCommonTest {
         assertEquals(1_000_000.0, initial.cash)
         assertEquals(emptyList(), initial.orders)
         assertEquals(initial, TradingLedger(initial.cash, initial.positions, emptyList()))
+    }
+    @Test
+    fun localHistoryRetainsOnlyTheLatest500Orders() {
+        val repository = DefaultTradingRepository(MemoryLedgerStorage())
+        val initial = repository.loadLedger()
+        val history = List(500) { index ->
+            com.pawan.kmpnativeuitrading.features.trading.domain.model.SimulatedOrder(
+                "old-$index", "RELIANCE", OrderSide.BUY, 1, 1284.5, index.toLong(),
+            )
+        }
+        repository.saveLedger(initial.copy(orders = history))
+        val result = PlaceOrderUseCase(repository) { 9999L }("RELIANCE", OrderSide.BUY, 1)
+        val ledger = assertIs<OrderExecution.Accepted>(result).ledger
+        assertEquals(500, ledger.orders.size)
+        assertEquals(9999L, ledger.orders.first().createdAtMillis)
+        assertEquals("old-498", ledger.orders.last().id)
     }
 }

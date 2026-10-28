@@ -28,3 +28,10 @@ No fake “live” badges or invented historical chart data: the trend line is e
 The server is a single-instance SQLite paper exchange. BEGIN IMMEDIATE serializes writers; that is simple and testable at this scale. It is not a low-latency exchange or horizontally scalable trading system. A real service would use PostgreSQL, versioned migrations, append-only cash/position ledger entries, pagination, reconciliation workers, measured SLOs and operational monitoring. Snapshot history currently returns the latest 500 orders; a full statement/export endpoint is future work.
 
 The native UI layers remain separate because platform accessibility, navigation and release lifecycles differ. Shared domain/network behavior prevents two versions of order rules. We did not add Hilt, Room, Firebase, WorkManager or a broker SDK solely to inflate a skills list.
+
+
+## Feature boundaries
+
+Shared source is organized into `features/auth` and `features/trading`, each with domain and presentation packages. Trading's HTTP implementation lives in `features/trading/data/remote`, and local ledger serialization in `features/trading/data/local`. `core/session` is the composition root and `core/platform` supplies native persistence and engines. View models depend on the domain `AuthGateway` and `AccountGateway` interfaces; the root injects the HTTP implementation. Domain interfaces expose domain values, without importing Ktor or persistence.
+
+Android auth and trading UI now live in separate feature packages. SwiftUI continues to use native observable bridges; its large presentation file is not claimed to be fully split into feature files. Source headers document file responsibilities, and a CI architecture check prevents domain dependencies on data/presentation/platform implementations. JSON/assets/lockfiles are schema/data artifacts and do not receive invalid comment syntax.

@@ -1,3 +1,6 @@
+/**
+ * Declares build tools, targets and dependencies for this module. Runtime business behavior belongs in feature source files.
+ */
 plugins {
     // this is necessary to avoid the plugins to be loaded multiple times
     // in each subproject's classloader
