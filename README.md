@@ -1,22 +1,61 @@
-# Northstar KMP Trading Demo
+# Northstar — native KMP paper trading
 
-Northstar is a Kotlin Multiplatform learning demo for the Indian market. It brings Discover, asset details, Portfolio, and Activity flows from the [native iOS sample](https://github.com/pk-debug/stocktradingios) to Android and iOS. Quotes and index values are illustrative; orders only affect an on-device demo account. Nothing connects to a broker, exchange, or live market-data service.
+A portfolio and interview project with native Jetpack Compose and SwiftUI screens and shared Kotlin business rules. Practice discovery, search, watchlists, portfolio P/L and reviewed market orders with synthetic Indian stock prices and virtual rupees. **No live prices, brokerage, deposits or real-money orders.**
 
-## App structure
+## Two working modes
 
-- `androidApp` contains the native Android UI, written with Jetpack Compose.
-- `iosApp/iosApp` contains the native iOS UI, written with SwiftUI.
-- `sharedLogic/src/commonMain` contains the shared domain models, repository contract, order/search/portfolio use cases, and MVVM state holder.
-- `sharedLogic/src/androidMain` and `sharedLogic/src/iosMain` provide device-local ledger persistence.
+- **Offline demo:** no signup or password. Holdings, orders and watchlist stay on the device. Start with ₹10 lakh and illustrative holdings.
+- **API paper account:** register with a username and 12+ character password. Each account starts empty with ₹10 lakh. The server owns balances, checks holdings, persists transactions and prevents duplicate orders. Tokens stay in memory; restarting asks you to sign in again. Unconfirmed orders are explicitly retried with their original UUID, including after a restart.
 
-Both native UIs observe one shared `TradingViewModel`. Order validation and ledger updates happen in shared Kotlin. Market data is bundled locally; screen entry and button taps do not make network requests or refresh quotes. The demo account and order history are saved on-device (Android SharedPreferences and iOS UserDefaults), so they remain available offline and across app restarts.
+Both modes use INR fixtures. The original backend lab has USD fixtures and a shared account; do not connect its unsecured `/api/v1` ledger to a public release. This repository's `server/` preserves its asset/order shapes while introducing authenticated `/api/v2` account isolation. See [API differences](docs/API.md).
 
-The app starts with a phone-and-password demo login. Enter a phone number containing 10–15 digits and any password of at least 8 characters. This is not real authentication: credentials are not sent to a server, and only the phone number is stored locally to restore the demo session. Sign out clears that local session. Do not use a real password.
+## Run
 
-## Run and test
+Install **JDK 21 (including javac)**, Android SDK platform `37.0`, build tools `36.0.0`, and use the checked-in Gradle wrapper. Set `ANDROID_HOME` for your SDK. Any trusted JDK vendor works; the previous auto-download-only vendor pin was removed.
 
-- Android: `./gradlew :androidApp:assembleDebug`
-- Shared Kotlin tests: `./gradlew :sharedLogic:allTests`
-- iOS: open `iosApp` in Xcode and run the iOS target on a simulator or device.
+```bash
+# Offline Android
+./gradlew :androidApp:assembleDebug :sharedLogic:testAndroidHostTest
 
-The starting account has ₹10,00,000 in sample cash and three illustrative holdings. Prices are fixed examples, not live or historical data. Orders are simulations only; this app is not investment advice.
+# Authenticated API (a Python 3.12 virtual environment is recommended)
+python -m venv .venv
+. .venv/bin/activate
+pip install -r server/requirements.lock
+NORTHSTAR_DB=/tmp/northstar.sqlite3 uvicorn app.main:app --app-dir server --host 127.0.0.1 --port 8000 --no-access-log
+
+# Android emulator -> host machine, DEBUG ONLY
+./gradlew :androidApp:assembleDebug -PapiOrigin=http://10.0.2.2:8000
+
+# Backend tests, each test creates a fresh temporary database
+PYTHONPATH=server NORTHSTAR_DB=/tmp/northstar-bootstrap.sqlite3 pytest -q server/tests
+```
+
+For a physical device or release build use a reachable **HTTPS** API origin, e.g. `-PapiOrigin=https://your-api.example`. Never put broker keys in a mobile build. Omitting `apiOrigin` selects offline demo mode.
+
+**iOS:** open `iosApp/iosApp.xcodeproj` in Xcode on macOS, choose your development team and an iOS 18.2+ device/simulator, and run the `iosApp` scheme. Offline mode works without server configuration. For API mode set the `NORTHSTAR_API_ORIGIN` build setting to your HTTPS origin. In an xcconfig write `https:/$()/your-api.example` because `//` begins a comment. Run shared tests on an Apple Silicon Mac using `./gradlew :sharedLogic:iosSimulatorArm64Test`. iOS cannot be built or simulator-tested on Linux.
+
+## Project map
+
+| Location | Responsibility |
+|---|---|
+| `androidApp/` | Native Compose UI, Android lifecycle and release configuration |
+| `iosApp/` | Native SwiftUI UI, app icon and privacy manifest |
+| `sharedLogic/…/domain/` | Models, search, P/L and local order rules |
+| `sharedLogic/…/network/` | HTTPS client, account DTOs, timeout and durable retry protocol |
+| `sharedLogic/…/presentation/` | Shared screen state and session composition root |
+| `sharedLogic/…/broker/` | Future adapter contract and explicit live-execution rejection |
+| `server/` | Isolated paper accounts, exact-money ledger, session authentication and tests |
+| `.github/workflows/quality.yml` | API tests, Android artifacts and macOS build gates |
+
+## Engineering and release guides
+
+- [Feature scope and future work](docs/FEATURES.md)
+- [Architecture and beginner walkthrough](docs/ARCHITECTURE.md)
+- [API contract and backend deployment](docs/API.md)
+- [Security decisions and limits](docs/SECURITY.md)
+- [Play Store / App Store release checklist](docs/RELEASE.md)
+- [Interview guide and resume skill mapping](docs/INTERVIEW.md)
+- [Future broker integration](docs/BROKER-INTEGRATION.md)
+- [Validation evidence](docs/VALIDATION.md)
+
+This is an interview showcase, not a clone or an endorsement of Zerodha, Groww, Upstox or Angel One. No competitor binary or private API was inspected. The REA repository was reviewed as a possible analysis tool; it supplied no evidence of those companies' internal architectures. Original Northstar branding is used throughout.

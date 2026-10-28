@@ -2,6 +2,7 @@ package com.pawan.kmpnativeuitrading.domain.model
 
 import kotlinx.serialization.Serializable
 
+@Serializable
 data class MarketAsset(
     val symbol: String,
     val companyName: String,
@@ -13,6 +14,7 @@ data class MarketAsset(
     val category: String,
 )
 
+@Serializable
 data class MarketIndex(
     val name: String,
     val value: String,
@@ -51,6 +53,7 @@ data class TradingLedger(
     val cash: Double,
     val positions: List<Position>,
     val orders: List<SimulatedOrder>,
+    val watchlist: List<String> = emptyList(),
 )
 
 data class PortfolioSummary(
@@ -69,6 +72,11 @@ data class TradingState(
     val searchText: String,
     val portfolio: PortfolioSummary,
     val lastMessage: String?,
+    val watchlist: List<String> = emptyList(),
+    val isBusy: Boolean = false,
+    val isRemote: Boolean = false,
+    val canRetryOrder: Boolean = false,
+    val lastSyncedMillis: Long? = null,
 )
 
 data class OrderResult(

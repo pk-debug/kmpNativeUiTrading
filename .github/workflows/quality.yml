@@ -1,0 +1,70 @@
+name: Quality gates
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r server/requirements.lock
+      - run: PYTHONPATH=server NORTHSTAR_DB=/tmp/bootstrap.sqlite pytest -q server/tests
+      - run: pip install pip-audit==2.10.1
+      - run: pip-audit --vulnerability-service pypi --disable-pip --no-deps -r server/requirements.lock
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r server/requirements.lock
+      - name: Build, lint and test against the local API
+        run: |
+          NORTHSTAR_DB=/tmp/contract.sqlite uvicorn app.main:app --app-dir server --no-access-log > /tmp/api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid"' EXIT
+          python - <<'PY'
+          import time, urllib.request
+          for attempt in range(30):
+              try:
+                  urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)
+                  break
+              except OSError:
+                  time.sleep(1)
+          else:
+              raise SystemExit('API did not become ready')
+          PY
+          NORTHSTAR_TEST_API=http://127.0.0.1:8000 ./gradlew :androidApp:assembleDebug :androidApp:bundleRelease :androidApp:lintDebug :sharedLogic:testAndroidHostTest --max-workers=4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-build-and-tests
+          path: |
+            androidApp/build/outputs/apk/debug/*.apk
+            androidApp/build/outputs/bundle/release/*.aab
+            sharedLogic/build/reports/tests/
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-37.0'
+      - run: ./gradlew :sharedLogic:compileKotlinIosSimulatorArm64 --max-workers=4
+      - run: xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build

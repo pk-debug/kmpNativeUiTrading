@@ -4,7 +4,7 @@ import com.pawan.kmpnativeuitrading.domain.repository.LedgerStorage
 import com.pawan.kmpnativeuitrading.presentation.TradingViewModel
 import platform.Foundation.NSUserDefaults
 
-private class IOSLedgerStorage : LedgerStorage {
+internal class IOSLedgerStorage : LedgerStorage {
     override fun readLedger(): String? =
         NSUserDefaults.standardUserDefaults.stringForKey(LEDGER_KEY)
 
