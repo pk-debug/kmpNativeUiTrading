@@ -15,11 +15,11 @@ private final class TradingObservableModel: NSObject, ObservableObject, TradingS
     let viewModel: TradingViewModel
     private var observerId: Int64 = 0
 
-    override init() {
-        viewModel = IOSLedgerStorageKt.createTradingViewModel()
+    init(viewModel: TradingViewModel) {
+        self.viewModel = viewModel
         state = viewModel.state
         super.init()
-        observerId = viewModel.addObserver(observer: self)
+        observerId = viewModel.addObserver(observer: TradingObserverProxy(owner: self))
     }
 
     func onStateChanged(state: TradingState) {
@@ -38,11 +38,11 @@ private final class AuthObservableModel: NSObject, ObservableObject, AuthStateOb
     let viewModel: AuthViewModel
     private var observerId: Int64 = 0
 
-    override init() {
-        viewModel = AuthSessionStorageKt.createAuthViewModel()
+    init(viewModel: AuthViewModel) {
+        self.viewModel = viewModel
         state = viewModel.state
         super.init()
-        observerId = viewModel.addObserver(observer: self)
+        observerId = viewModel.addObserver(observer: AuthObserverProxy(owner: self))
     }
 
     func onAuthStateChanged(state: AuthState) {
@@ -56,11 +56,32 @@ private final class AuthObservableModel: NSObject, ObservableObject, AuthStateOb
     }
 }
 
+// Kotlin owns its observer. A weak proxy avoids a model -> VM -> model retain cycle.
+private final class TradingObserverProxy: NSObject, TradingStateObserver {
+    weak var owner: TradingObservableModel?
+    init(owner: TradingObservableModel) { self.owner = owner; super.init() }
+    func onStateChanged(state: TradingState) { owner?.onStateChanged(state: state) }
+}
+
+private final class AuthObserverProxy: NSObject, AuthStateObserver {
+    weak var owner: AuthObservableModel?
+    init(owner: AuthObservableModel) { self.owner = owner; super.init() }
+    func onAuthStateChanged(state: AuthState) { owner?.onAuthStateChanged(state: state) }
+}
+
 struct ContentView: View {
-    @StateObject private var model = TradingObservableModel()
-    @StateObject private var authModel = AuthObservableModel()
+    @StateObject private var model: TradingObservableModel
+    @StateObject private var authModel: AuthObservableModel
+
+    init() {
+        let session = AppSessionFactoryKt.createAppSession()
+        _model = StateObject(wrappedValue: TradingObservableModel(viewModel: session.trading))
+        _authModel = StateObject(wrappedValue: AuthObservableModel(viewModel: session.auth))
+    }
     @State private var selectedTab = 0
     @State private var selectedSymbol: String?
+    @State private var showAccount = false
+    @State private var confirmDelete = false
 
     var body: some View {
         Group {
@@ -71,6 +92,11 @@ struct ContentView: View {
             }
         }
         .tint(TradingPalette.green)
+        .onChange(of: authModel.state.isLoggedIn) { _, _ in
+            showAccount = false
+            selectedSymbol = nil
+            selectedTab = 0
+        }
     }
 
     private var tradingTabs: some View {
@@ -81,6 +107,13 @@ struct ContentView: View {
             .toolbar { signOutButton }
             .tabItem { Label("Discover", systemImage: "magnifyingglass") }
             .tag(0)
+
+            NavigationStack {
+                WatchlistScreen(model: model, onSelect: { selectedSymbol = $0 })
+            }
+            .toolbar { signOutButton }
+            .tabItem { Label("Watchlist", systemImage: "star") }
+            .tag(3)
 
             NavigationStack {
                 PortfolioScreen(model: model, onSelect: { selectedSymbol = $0 })
@@ -95,6 +128,42 @@ struct ContentView: View {
             .toolbar { signOutButton }
             .tabItem { Label("Activity", systemImage: "clock.arrow.circlepath") }
             .tag(2)
+        }
+        .sheet(isPresented: $showAccount) {
+            NavigationStack {
+                Form {
+                    Section("Paper trading") {
+                        Text(model.state.isRemote ? "API mode · INR · synthetic quotes" : "Offline practice · INR · synthetic quotes")
+                        Text("No deposits, withdrawals or real exchange orders.")
+                    }
+                    Section("Privacy") {
+                        Text("No analytics or advertising SDK. API mode sends credentials over HTTPS and stores practice activity on your server. Session tokens stay only in memory and expire after 8 hours.")
+                    }
+                    if model.state.isRemote {
+                        Section("Sync") {
+                            Button("Refresh account") { model.viewModel.refresh() }
+                                .disabled(model.state.isBusy)
+                            if model.state.canRetryOrder {
+                                Button("Retry unconfirmed order safely") { model.viewModel.retryOrder() }
+                                    .disabled(model.state.isBusy)
+                            }
+                            Text(model.state.lastMessage ?? "Quotes are illustrative, not live.")
+                        }
+                        Section {
+                            Button("Delete account and server data", role: .destructive) { confirmDelete = true }
+                                .disabled(authModel.state.isBusy)
+                        }
+                    }
+                    if let error = authModel.state.errorMessage { Text(error).foregroundStyle(.red) }
+                    Button("Sign out") { authModel.viewModel.signOut() }
+                        .disabled(authModel.state.isBusy)
+                }
+                .navigationTitle("Account")
+                .toolbar { Button("Close") { showAccount = false } }
+                .confirmationDialog("Permanently delete all account data?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                    Button("Delete permanently", role: .destructive) { authModel.viewModel.deleteAccount() }
+                } message: { Text("Your profile, sessions, holdings, orders and watchlist will be removed. This cannot be undone.") }
+            }
         }
         .sheet(isPresented: Binding(
             get: { selectedSymbol != nil },
@@ -112,15 +181,14 @@ struct ContentView: View {
     @ToolbarContentBuilder
     private var signOutButton: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Button("Sign out") {
-                authModel.viewModel.signOut()
-            }
+            Button("Account") { showAccount = true }
         }
     }
 }
 
 private struct LoginScreen: View {
     @ObservedObject var model: AuthObservableModel
+    @State private var register = false
     @State private var phoneNumber = ""
     @State private var password = ""
     @State private var errorMessage: String?
@@ -135,12 +203,13 @@ private struct LoginScreen: View {
                 Text("Welcome back")
                     .font(.largeTitle.bold())
                     .foregroundStyle(TradingPalette.ink)
-                Text("Sign in to your demo trading account.")
+                Text(model.state.isRemote ? "Your private paper-trading account" : "Offline practice · no real money")
                     .font(.subheadline)
                     .foregroundStyle(TradingPalette.muted)
 
-                TextField("Phone number", text: $phoneNumber)
-                    .keyboardType(.phonePad)
+                if model.state.isRemote {
+                TextField(model.state.isRemote ? "Username" : "Demo phone number", text: $phoneNumber)
+                    .keyboardType(model.state.isRemote ? .asciiCapable : .phonePad)
                     .textContentType(.telephoneNumber)
                     .textInputAutocapitalization(.never)
                     .padding(14)
@@ -151,20 +220,22 @@ private struct LoginScreen: View {
                     .padding(14)
                     .background(.white, in: RoundedRectangle(cornerRadius: 14))
 
-                if let errorMessage {
-                    Text(errorMessage)
+                }
+                if let message = model.state.errorMessage ?? errorMessage {
+                    Text(message)
                         .font(.caption)
                         .foregroundStyle(TradingPalette.red)
                 }
 
                 Button {
-                    let result = model.viewModel.login(
-                        phoneNumber: phoneNumber,
-                        password: password
-                    )
+                    let result = !model.state.isRemote
+                        ? model.viewModel.login(phoneNumber: "0000000000", password: "offline-demo-only")
+                        : register
+                        ? model.viewModel.register(username: phoneNumber, password: password)
+                        : model.viewModel.login(phoneNumber: phoneNumber, password: password)
                     errorMessage = result.success ? nil : result.message
                 } label: {
-                    Text("Sign in")
+                    Text(model.state.isBusy ? "Connecting…" : (register ? "Create paper account" : (model.state.isRemote ? "Sign in" : "Enter offline demo")))
                         .font(.headline)
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -172,7 +243,15 @@ private struct LoginScreen: View {
                         .background(TradingPalette.green, in: RoundedRectangle(cornerRadius: 14))
                 }
 
-                Text("Demo sign-in only. Use any phone number with 10–15 digits and a password of at least 8 characters. No password is stored.")
+                .disabled(model.state.isBusy)
+
+                if model.state.isRemote {
+                    Button(register ? "Already have an account? Sign in" : "Create an account") { register.toggle(); errorMessage = nil }
+                        .disabled(model.state.isBusy)
+                    Text("Use a unique username and a password of at least 12 characters. This is a practice account, not a brokerage account.")
+                        .font(.caption)
+                }
+                Text(model.state.isRemote ? "Passwords are verified by your server; they are never stored on this phone." : "No account or password needed. Practice with sample money on this device. Prices are illustrative.")
                     .font(.caption)
                     .foregroundStyle(TradingPalette.muted)
             }
@@ -198,9 +277,17 @@ private struct DiscoverScreen: View {
                     Text("Discover")
                         .font(.largeTitle.bold())
                         .foregroundStyle(TradingPalette.ink)
-                    Text("Indian markets · Demo account")
+                    Text(model.state.isRemote ? "API paper account · synthetic INR prices" : "Indian markets · Offline paper account")
                         .font(.subheadline)
                         .foregroundStyle(TradingPalette.muted)
+                    if model.state.isRemote {
+                        Text(model.state.isBusy ? "Syncing…" : "Snapshot data · open Account to refresh or retry")
+                            .font(.caption)
+                        if model.state.canRetryOrder {
+                            Text("An order is unconfirmed. Open Account to retry safely.").foregroundStyle(.red)
+                        }
+                        if let message = model.state.lastMessage { Text(message).font(.caption) }
+                    }
                 }
 
                 AccountSummaryCard(
@@ -265,7 +352,7 @@ private struct PortfolioScreen: View {
                     Text("Portfolio")
                         .font(.largeTitle.bold())
                         .foregroundStyle(TradingPalette.ink)
-                    Text("Your locally saved demo holdings")
+                    Text(model.state.isRemote ? "Server-confirmed practice holdings" : "Your locally saved practice holdings")
                         .font(.subheadline)
                         .foregroundStyle(TradingPalette.muted)
                 }
@@ -351,6 +438,9 @@ private struct AssetDetailScreen: View {
     @ObservedObject var model: TradingObservableModel
     @State private var quantityText = "1"
     @State private var resultMessage: String?
+    @State private var showReview = false
+    @State private var reviewBuy = true
+    @State private var reviewQuantity: Int32 = 1
 
     var body: some View {
         NavigationStack {
@@ -381,6 +471,11 @@ private struct AssetDetailScreen: View {
                             .font(.subheadline)
                             .foregroundStyle(TradingPalette.muted)
 
+                            Button(model.state.watchlist.contains(asset.symbol) ? "Remove from watchlist" : "Add to watchlist") {
+                                model.viewModel.toggleWatchlist(symbol: asset.symbol)
+                            }
+                            .disabled(model.state.isBusy)
+                            Text("Illustrative trend · not historical market data").font(.caption)
                             Sparkline(
                                 values: asset.history.map { $0.doubleValue },
                                 positive: asset.changePercent >= 0
@@ -419,6 +514,16 @@ private struct AssetDetailScreen: View {
                     Button("Close") { dismiss() }
                 }
             }
+            .confirmationDialog("Review paper order", isPresented: $showReview, titleVisibility: .visible) {
+                Button("Confirm paper order") {
+                    guard let asset else { return }
+                    let result = model.viewModel.placeOrder(symbol: asset.symbol, isBuy: reviewBuy, quantity: reviewQuantity)
+                    resultMessage = result.message
+                    showReview = false
+                }
+            } message: {
+                Text("\(reviewBuy ? "BUY" : "SELL") \(reviewQuantity) \(asset?.symbol ?? "") · estimated \(formatMoney((asset?.price ?? 0) * Double(reviewQuantity))) · no real money")
+            }
             .alert("Demo order", isPresented: Binding(
                 get: { resultMessage != nil },
                 set: { if !$0 { resultMessage = nil } }
@@ -432,17 +537,15 @@ private struct AssetDetailScreen: View {
 
     private func orderButton(_ title: String, isBuy: Bool, asset: MarketAsset) -> some View {
         Button(title) {
-            guard let quantity = Int32(quantityText) else {
+            guard let quantity = Int32(quantityText), quantity >= 1, quantity <= 1_000_000 else {
                 resultMessage = "Enter a whole-share quantity of at least 1."
                 return
             }
-            let result = model.viewModel.placeOrder(
-                symbol: asset.symbol,
-                isBuy: isBuy,
-                quantity: quantity
-            )
-            resultMessage = result.message
+            reviewQuantity = quantity
+            reviewBuy = isBuy
+            showReview = true
         }
+        .disabled(model.state.isBusy || model.state.canRetryOrder)
         .font(.subheadline.bold())
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
@@ -643,4 +746,32 @@ private func formatMoney(_ amount: Double) -> String {
 private func formatPercent(_ change: Double) -> String {
     let sign = change >= 0 ? "+" : ""
     return "\(sign)\(String(format: "%.2f", change))%"
+}
+
+
+/// Watchlists reuse the shared state, so Android and iOS follow the same rules.
+private struct WatchlistScreen: View {
+    @ObservedObject var model: TradingObservableModel
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        List {
+            if model.state.watchlist.isEmpty {
+                Text("Open a stock in Discover and add it to your watchlist.")
+            }
+            ForEach(model.state.assets.filter { model.state.watchlist.contains($0.symbol) }, id: \.symbol) { asset in
+                Button { onSelect(asset.symbol) } label: {
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(asset.symbol).font(.headline)
+                            Text(asset.companyName).font(.caption)
+                        }
+                        Spacer()
+                        Text(formatMoney(asset.price))
+                    }
+                }
+            }
+        }
+        .navigationTitle("Watchlist")
+    }
 }

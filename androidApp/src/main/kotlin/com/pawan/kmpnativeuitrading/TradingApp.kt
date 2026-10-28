@@ -43,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -91,7 +92,7 @@ fun NorthstarApp(authViewModel: AuthViewModel, tradingViewModel: TradingViewMode
         onDispose { authViewModel.removeObserver(observerId) }
     }
     if (authState.value.isLoggedIn) {
-        TradingApp(tradingViewModel, authViewModel::signOut)
+        TradingApp(tradingViewModel, authViewModel::signOut, authViewModel::deleteAccount, authState.value)
     } else {
         LoginScreen(authViewModel, authState.value)
     }
@@ -99,7 +100,8 @@ fun NorthstarApp(authViewModel: AuthViewModel, tradingViewModel: TradingViewMode
 
 @Composable
 private fun LoginScreen(authViewModel: AuthViewModel, authState: AuthState) {
-    var phoneNumber by remember { mutableStateOf("") }
+    var register by rememberSaveable { mutableStateOf(false) }
+    var phoneNumber by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf(authState.errorMessage) }
 
@@ -125,15 +127,16 @@ private fun LoginScreen(authViewModel: AuthViewModel, authState: AuthState) {
             ) {
                 Text("NORTHSTAR", color = Green, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
                 Text("Welcome back", color = Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                Text("Sign in to your demo trading account.", color = Muted)
+                Text(if (authState.isRemote) "Your private paper-trading account" else "Offline practice · no real money", color = Muted)
                 Spacer(Modifier.height(4.dp))
+                if (authState.isRemote) {
                 OutlinedTextField(
                     value = phoneNumber,
                     onValueChange = { phoneNumber = it; errorMessage = null },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Phone number") },
-                    placeholder = { Text("+91 98765 43210") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    label = { Text(if (authState.isRemote) "Username" else "Demo phone number") },
+                    placeholder = { Text(if (authState.isRemote) "trader.pawan" else "+91 98765 43210") },
+                    keyboardOptions = KeyboardOptions(keyboardType = if (authState.isRemote) KeyboardType.Text else KeyboardType.Phone),
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                 )
@@ -147,22 +150,27 @@ private fun LoginScreen(authViewModel: AuthViewModel, authState: AuthState) {
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                 )
-                errorMessage?.let {
+                }
+                (authState.errorMessage ?: errorMessage)?.let {
                     Text(it, color = Red, fontSize = 13.sp)
                 }
                 Button(
                     onClick = {
-                        val (success, message) = authViewModel.login(phoneNumber, password)
+                        val (success, message) = if (!authState.isRemote) authViewModel.login("0000000000", "offline-demo-only") else if (register) authViewModel.register(phoneNumber, password) else authViewModel.login(phoneNumber, password)
                         errorMessage = if (success) null else message
                     },
+                    enabled = !authState.isBusy,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(14.dp),
                 ) {
-                    Text("Sign in", fontWeight = FontWeight.SemiBold)
+                    Text(if (authState.isBusy) "Connecting…" else if (register) "Create paper account" else if (!authState.isRemote) "Enter offline demo" else "Sign in", fontWeight = FontWeight.SemiBold)
+                }
+                if (authState.isRemote) TextButton(onClick = { register = !register; errorMessage = null }, enabled = !authState.isBusy) {
+                    Text(if (register) "Already have an account? Sign in" else "New here? Create an account")
                 }
                 HorizontalDivider(color = Color(0xFFE4E9E6))
                 Text(
-                    "Demo sign-in only. Use any phone number with 10–15 digits and a password of at least 8 characters. No password is stored.",
+                    if (authState.isRemote) "Use a unique username and a password of at least 12 characters. Your session stays in memory. This is paper trading, not a brokerage account." else "No account or password needed. Practice with sample money on this device. Prices are illustrative.",
                     color = Muted,
                     fontSize = 12.sp,
                 )
@@ -172,9 +180,11 @@ private fun LoginScreen(authViewModel: AuthViewModel, authState: AuthState) {
 }
 
 @Composable
-fun TradingApp(viewModel: TradingViewModel, onSignOut: () -> Unit) {
+fun TradingApp(viewModel: TradingViewModel, onSignOut: () -> Unit, onDeleteAccount: () -> Unit = {}, authState: AuthState = AuthState(null, null)) {
+    var showAccount by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     val stateHolder = remember(viewModel) { mutableStateOf(viewModel.state) }
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var selectedAsset by remember { mutableStateOf<MarketAsset?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -213,16 +223,16 @@ fun TradingApp(viewModel: TradingViewModel, onSignOut: () -> Unit) {
                 ) {
                     Text("NORTHSTAR", color = Green, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = onSignOut) { Text("Sign out") }
+                    TextButton(onClick = { showAccount = true }) { Text("Account") }
                 }
             },
             bottomBar = {
                 NavigationBar(containerColor = Color.White) {
-                    listOf("Discover", "Portfolio", "Activity").forEachIndexed { index, label ->
+                    listOf("Discover", "Watchlist", "Portfolio", "Activity").forEachIndexed { index, label ->
                         NavigationBarItem(
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
-                            icon = {},
+                            icon = { Text(listOf("⌕", "☆", "◉", "↔")[index], fontSize = 22.sp) },
                             label = { Text(label) },
                         )
                     }
@@ -236,7 +246,14 @@ fun TradingApp(viewModel: TradingViewModel, onSignOut: () -> Unit) {
                     onAssetSelected = { selectedAsset = it },
                     modifier = Modifier.padding(padding),
                 )
-                1 -> PortfolioScreen(
+                1 -> DiscoverScreen(
+                    state = stateHolder.value.copy(filteredAssets = stateHolder.value.filteredAssets.filter { it.symbol in stateHolder.value.watchlist }),
+                    onSearch = viewModel::setSearchText,
+                    onAssetSelected = { selectedAsset = it },
+                    modifier = Modifier.padding(padding),
+                    watchlistOnly = true,
+                )
+                2 -> PortfolioScreen(
                     state = stateHolder.value,
                     onAssetSelected = { selectedAsset = it },
                     modifier = Modifier.padding(padding),
@@ -246,10 +263,35 @@ fun TradingApp(viewModel: TradingViewModel, onSignOut: () -> Unit) {
         }
     }
 
+    if (showAccount) AlertDialog(
+        onDismissRequest = { showAccount = false },
+        title = { Text("Your paper account") },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(if (stateHolder.value.isRemote) "API mode · INR · synthetic prices" else "Offline mode · INR · synthetic prices")
+            Text("No deposits, withdrawals or real exchange orders. Watchlists and holdings are practice data.")
+            Text("Privacy: no advertising or analytics SDK. API mode sends credentials over HTTPS and stores account activity on your server. Sessions expire after 8 hours and are kept only in memory on the phone.")
+            authState.errorMessage?.let { Text(it, color = Red) }
+            if (stateHolder.value.isRemote) {
+                TextButton(onClick = viewModel::refresh, enabled = !stateHolder.value.isBusy) { Text("Refresh account") }
+                if (stateHolder.value.canRetryOrder) TextButton(onClick = viewModel::retryOrder, enabled = !stateHolder.value.isBusy) { Text("Retry unconfirmed order safely") }
+                TextButton(onClick = { confirmDelete = true }, enabled = !authState.isBusy) { Text("Delete account and server data", color = Red) }
+            }
+        } },
+        confirmButton = { TextButton(onClick = onSignOut, enabled = !authState.isBusy) { Text(if (authState.isBusy) "Please wait…" else "Sign out") } },
+        dismissButton = { TextButton(onClick = { showAccount = false }) { Text("Close") } },
+    )
+    if (confirmDelete) AlertDialog(
+        onDismissRequest = { confirmDelete = false },
+        title = { Text("Permanently delete your account?") },
+        text = { Text("This removes your server profile, sessions, holdings, orders and watchlist. It cannot be undone.") },
+        confirmButton = { TextButton(onClick = { confirmDelete = false; onDeleteAccount() }) { Text("Delete permanently", color = Red) } },
+        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Keep account") } },
+    )
     selectedAsset?.let { asset ->
         AssetDetailDialog(
             asset = asset,
             state = stateHolder.value,
+            onWatch = { viewModel.toggleWatchlist(asset.symbol) },
             onDismiss = { selectedAsset = null },
         ) { isBuy, quantity -> viewModel.placeOrder(asset.symbol, isBuy, quantity) }
     }
@@ -261,6 +303,7 @@ private fun DiscoverScreen(
     onSearch: (String) -> Unit,
     onAssetSelected: (MarketAsset) -> Unit,
     modifier: Modifier = Modifier,
+    watchlistOnly: Boolean = false,
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -270,8 +313,10 @@ private fun DiscoverScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("NORTHSTAR", color = Green, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
-                Text("Discover", color = Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                Text("Indian markets · Demo account", color = Muted, fontSize = 14.sp)
+                Text(if (watchlistOnly) "Watchlist" else "Discover", color = Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                Text(if (state.isRemote) "API paper account · synthetic INR prices" else "Indian markets · Offline paper account", color = Muted, fontSize = 14.sp)
+                if (state.isRemote) Text(if (state.isBusy) "Syncing…" else if (state.lastSyncedMillis == null) "Not synced · open Account to refresh" else "Snapshot synced · quotes are illustrative", color = Muted, fontSize = 12.sp)
+                if (state.canRetryOrder) Text("An order is unconfirmed. Open Account to retry safely.", color = Red)
             }
         }
         item {
@@ -299,7 +344,7 @@ private fun DiscoverScreen(
             )
         }
         if (state.filteredAssets.isEmpty()) {
-            item { Text("No sample stocks match your search.", color = Muted, modifier = Modifier.padding(12.dp)) }
+            item { Text(if (watchlistOnly) "Your watchlist is empty. Open a stock in Discover and choose Add to watchlist." else "No sample stocks match your search.", color = Muted, modifier = Modifier.padding(12.dp)) }
         }
         items(state.filteredAssets, key = MarketAsset::symbol) { asset ->
             AssetRow(asset) { onAssetSelected(asset) }
@@ -321,7 +366,7 @@ private fun PortfolioScreen(
     ) {
         item {
             Text("Portfolio", color = Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-            Text("Your locally saved demo holdings", color = Muted)
+            Text(if (state.isRemote) "Server-confirmed practice holdings" else "Your locally saved practice holdings", color = Muted)
         }
         item {
             AccountSummary(
@@ -509,10 +554,23 @@ private fun AssetDetailDialog(
     asset: MarketAsset,
     state: TradingState,
     onDismiss: () -> Unit,
+    onWatch: () -> Unit,
     onOrder: (Boolean, Int) -> Unit,
 ) {
     var quantity by remember { mutableStateOf("1") }
     var validation by remember { mutableStateOf<String?>(null) }
+    var reviewBuy by remember { mutableStateOf<Boolean?>(null) }
+    var reviewQuantity by remember { mutableIntStateOf(1) }
+    if (reviewBuy != null) {
+        AlertDialog(
+            onDismissRequest = { reviewBuy = null },
+            title = { Text("Review paper order") },
+            text = { Text("${if (reviewBuy == true) "BUY" else "SELL"} $reviewQuantity ${asset.symbol} shares\nEstimated value ${money(asset.price * reviewQuantity)}\nSynthetic market price · no real money") },
+            confirmButton = { TextButton(onClick = { onOrder(reviewBuy == true, reviewQuantity); reviewBuy = null; onDismiss() }, enabled = !state.isBusy && !state.canRetryOrder) { Text("Confirm paper order") } },
+            dismissButton = { TextButton(onClick = { reviewBuy = null }) { Text("Back") } },
+        )
+        return
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -531,6 +589,8 @@ private fun AssetDetailDialog(
                     )
                 }
                 Text("${asset.exchange} · ${asset.category}", color = Muted, fontSize = 12.sp)
+                TextButton(onClick = onWatch, enabled = !state.isBusy) { Text(if (asset.symbol in state.watchlist) "Remove from watchlist" else "Add to watchlist") }
+                Text("Illustrative trend · not historical market data", color = Muted, fontSize = 11.sp)
                 PriceChart(asset.history, asset.changePercent >= 0)
                 Text("Cash available ${money(state.cash)}", color = Muted, fontSize = 12.sp)
                 OutlinedTextField(
@@ -548,25 +608,27 @@ private fun AssetDetailDialog(
                 Button(
                     onClick = {
                         val count = quantity.toIntOrNull()
-                        if ((count == null) || (count < 1)) validation = "Enter at least one whole share."
+                        if ((count == null) || (count !in 1..1_000_000)) validation = "Enter at least one whole share."
                         else {
-                            onOrder(true, count)
-                            onDismiss()
+                            reviewQuantity = count
+                            reviewBuy = true
                         }
                     },
+                    enabled = !state.isBusy && !state.canRetryOrder,
                     colors = ButtonDefaults.buttonColors(containerColor = Green),
-                ) { Text("Buy") }
+                ) { Text("Review buy") }
                 Button(
                     onClick = {
                         val count = quantity.toIntOrNull()
-                        if ((count == null) || (count < 1)) validation = "Enter at least one whole share."
+                        if ((count == null) || (count !in 1..1_000_000)) validation = "Enter at least one whole share."
                         else {
-                            onOrder(false, count)
-                            onDismiss()
+                            reviewQuantity = count
+                            reviewBuy = false
                         }
                     },
+                    enabled = !state.isBusy && !state.canRetryOrder,
                     colors = ButtonDefaults.buttonColors(containerColor = Ink),
-                ) { Text("Sell") }
+                ) { Text("Review sell") }
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },

@@ -4,7 +4,7 @@ import com.pawan.kmpnativeuitrading.domain.repository.SessionRepository
 import com.pawan.kmpnativeuitrading.presentation.AuthViewModel
 import platform.Foundation.NSUserDefaults
 
-private class IOSSessionRepository : SessionRepository {
+internal class IOSSessionRepository : SessionRepository {
     override fun loadPhoneNumber(): String? =
         NSUserDefaults.standardUserDefaults.stringForKey(PHONE_KEY)
 

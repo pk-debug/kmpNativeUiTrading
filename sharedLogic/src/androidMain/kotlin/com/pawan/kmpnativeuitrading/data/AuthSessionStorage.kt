@@ -4,7 +4,7 @@ import android.content.Context
 import com.pawan.kmpnativeuitrading.domain.repository.SessionRepository
 import com.pawan.kmpnativeuitrading.presentation.AuthViewModel
 
-private class AndroidSessionRepository(context: Context) : SessionRepository {
+internal class AndroidSessionRepository(context: Context) : SessionRepository {
     private val preferences = context.applicationContext
         .getSharedPreferences("northstar_demo_account", Context.MODE_PRIVATE)
 

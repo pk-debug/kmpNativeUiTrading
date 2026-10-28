@@ -4,7 +4,7 @@ import android.content.Context
 import com.pawan.kmpnativeuitrading.domain.repository.LedgerStorage
 import com.pawan.kmpnativeuitrading.presentation.TradingViewModel
 
-private class AndroidLedgerStorage(context: Context) : LedgerStorage {
+internal class AndroidLedgerStorage(context: Context) : LedgerStorage {
     private val preferences = context.applicationContext
         .getSharedPreferences("northstar_demo_account", Context.MODE_PRIVATE)
 
