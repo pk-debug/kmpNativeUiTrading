@@ -1,3 +1,6 @@
+/**
+ * Native SwiftUI presentation and weak observer bridges for the shared feature models. Lazy collections avoid eagerly constructing every row.
+ */
 import SwiftUI
 import SharedLogic
 import Foundation
@@ -195,7 +198,7 @@ private struct LoginScreen: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 Text("NORTHSTAR")
                     .font(.caption.weight(.bold))
                     .tracking(1.6)
@@ -268,7 +271,7 @@ private struct DiscoverScreen: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("NORTHSTAR")
                         .font(.caption.weight(.bold))
@@ -447,7 +450,7 @@ private struct AssetDetailScreen: View {
             Group {
                 if let asset {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 18) {
+                        LazyVStack(alignment: .leading, spacing: 18) {
                             HStack(alignment: .top) {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(asset.symbol)
@@ -733,14 +736,19 @@ private struct DemoDisclaimer: View {
     }
 }
 
-private func formatMoney(_ amount: Double) -> String {
+/// Currency formatting is reused on the main UI thread instead of allocating per row.
+private let moneyFormatter: NumberFormatter = {
     let formatter = NumberFormatter()
     formatter.numberStyle = .currency
     formatter.locale = Locale(identifier: "en_IN")
     formatter.currencyCode = "INR"
     formatter.minimumFractionDigits = 2
     formatter.maximumFractionDigits = 2
-    return formatter.string(from: NSNumber(value: amount)) ?? "₹\(amount)"
+    return formatter
+}()
+
+private func formatMoney(_ amount: Double) -> String {
+    return moneyFormatter.string(from: NSNumber(value: amount)) ?? "₹\(amount)"
 }
 
 private func formatPercent(_ change: Double) -> String {

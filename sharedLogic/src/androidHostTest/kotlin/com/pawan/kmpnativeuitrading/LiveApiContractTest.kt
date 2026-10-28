@@ -1,6 +1,9 @@
+/**
+ * Verifies LiveApiContract behavior with repeatable assertions. Test fixtures are practice data and do not authorize real trading.
+ */
 package com.pawan.kmpnativeuitrading
 
-import com.pawan.kmpnativeuitrading.network.*
+import com.pawan.kmpnativeuitrading.features.trading.data.remote.*
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.http.Url

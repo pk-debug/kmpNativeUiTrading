@@ -1,3 +1,6 @@
+/**
+ * Defines iOSApp for the shared native application. Keep platform UI concerns outside domain rules.
+ */
 import SwiftUI
 
 @main

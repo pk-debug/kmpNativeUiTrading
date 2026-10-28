@@ -46,10 +46,10 @@ For a physical device or release build use a reachable **HTTPS** API origin, e.g
 |---|---|
 | `androidApp/` | Native Compose UI, Android lifecycle and release configuration |
 | `iosApp/` | Native SwiftUI UI, app icon and privacy manifest |
-| `sharedLogic/…/domain/` | Models, search, P/L and local order rules |
-| `sharedLogic/…/network/` | HTTPS client, account DTOs, timeout and durable retry protocol |
-| `sharedLogic/…/presentation/` | Shared screen state and session composition root |
-| `sharedLogic/…/broker/` | Future adapter contract and explicit live-execution rejection |
+| `sharedLogic/…/features/{auth,trading}/domain/` | Models, search, P/L and local order rules |
+| `sharedLogic/…/features/trading/data/remote/` | HTTPS client, account DTOs, timeout and durable retry protocol |
+| `sharedLogic/…/features/{auth,trading}/presentation/` | Shared screen state and session composition root |
+| `sharedLogic/…/features/trading/broker/` | Future adapter contract and explicit live-execution rejection |
 | [northstar-backend-lab/paper-trading-api](https://github.com/pk-debug/northstar-backend-lab/tree/7bac27ca60fe799a40ec9a11bec7b04d8ff78317/paper-trading-api) | Separate repository: isolated accounts, ledger, sessions and API tests |
 | `.github/workflows/quality.yml` | Android artifacts, pinned external-backend contract test and macOS build gates |
 
@@ -65,3 +65,5 @@ For a physical device or release build use a reachable **HTTPS** API origin, e.g
 - [Validation evidence](docs/VALIDATION.md)
 
 This is an interview showcase, not a clone or an endorsement of Zerodha, Groww, Upstox or Angel One. No competitor binary or private API was inspected. The REA repository was reviewed as a possible analysis tool; it supplied no evidence of those companies' internal architectures. Original Northstar branding is used throughout.
+
+Performance/capacity limits and the validation plan are in [PERFORMANCE.md](docs/PERFORMANCE.md). Run `python tools/check_architecture.py` to verify source documentation and domain dependency boundaries.

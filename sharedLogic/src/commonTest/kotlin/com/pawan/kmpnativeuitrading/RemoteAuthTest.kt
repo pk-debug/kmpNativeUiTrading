@@ -1,9 +1,12 @@
+/**
+ * Verifies RemoteAuth behavior with repeatable assertions. Test fixtures are practice data and do not authorize real trading.
+ */
 @file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 package com.pawan.kmpnativeuitrading
 
-import com.pawan.kmpnativeuitrading.domain.repository.SessionRepository
-import com.pawan.kmpnativeuitrading.network.*
-import com.pawan.kmpnativeuitrading.presentation.AuthViewModel
+import com.pawan.kmpnativeuitrading.features.auth.domain.repository.SessionRepository
+import com.pawan.kmpnativeuitrading.features.trading.data.remote.*
+import com.pawan.kmpnativeuitrading.features.auth.presentation.AuthViewModel
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.*
 import io.ktor.http.*
@@ -29,7 +32,7 @@ class RemoteAuthTest {
             }
         })
         val client = configureTradingClient(HttpClient(engine))
-        val remote = RemoteAccount("https://example.com", client, cache)
+        val remote = RemoteAccount("https://example.com", client, cache, storageDispatcher = StandardTestDispatcher(testScheduler))
         var cleared = false
         val auth = AuthViewModel(sessions, remote, onSignedOut = { cleared = true }, scope = this)
         auth.login("alice", "long-passphrase-123")

@@ -1,3 +1,6 @@
+/**
+ * Declares build tools, targets and dependencies for this module. Runtime business behavior belongs in feature source files.
+ */
 rootProject.name = "KmpNativeUiTrading"
 
 pluginManagement {

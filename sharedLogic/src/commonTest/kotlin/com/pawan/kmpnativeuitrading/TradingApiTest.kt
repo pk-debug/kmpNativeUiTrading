@@ -1,8 +1,11 @@
+/**
+ * Verifies TradingApi behavior with repeatable assertions. Test fixtures are practice data and do not authorize real trading.
+ */
 package com.pawan.kmpnativeuitrading
 
-import com.pawan.kmpnativeuitrading.broker.ExecutionMode
-import com.pawan.kmpnativeuitrading.broker.ExecutionPolicy
-import com.pawan.kmpnativeuitrading.network.*
+import com.pawan.kmpnativeuitrading.features.trading.broker.ExecutionMode
+import com.pawan.kmpnativeuitrading.features.trading.broker.ExecutionPolicy
+import com.pawan.kmpnativeuitrading.features.trading.data.remote.*
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.*
 import io.ktor.http.*
@@ -11,8 +14,9 @@ import kotlin.test.*
 
 class TradingApiTest {
     private class MemoryRetries : RetryStorage {
+        var reads = 0
         val values = mutableMapOf<String, String>()
-        override fun read(key: String) = values[key]
+        override fun read(key: String): String? { reads++; return values[key] }
         override fun write(key: String, value: String?) { if (value == null) values.remove(key) else values[key] = value }
     }
 
@@ -53,6 +57,9 @@ class TradingApiTest {
         first.authenticate("alice", "test-passphrase", false)
         assertFailsWith<IllegalStateException> { first.submit(OrderRequest("RELIANCE", "BUY", 1)) }
         assertNotNull(first.pending)
+        val readsAfterLogin = storage.reads
+        repeat(100) { assertNotNull(first.pending) }
+        assertEquals(readsAfterLogin, storage.reads, "Rendering retry state must not access disk")
         assertFalse(storage.values.values.any { "memory-only-token" in it || "test-passphrase" in it })
         val restarted = RemoteAccount("https://example.com", client, storage)
         restarted.authenticate("bob", "test-passphrase", false)
