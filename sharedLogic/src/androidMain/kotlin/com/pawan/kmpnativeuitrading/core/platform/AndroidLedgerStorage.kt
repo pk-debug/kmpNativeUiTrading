@@ -26,4 +26,4 @@ internal class AndroidLedgerStorage(context: Context) : LedgerStorage {
 }
 
 fun createTradingViewModel(context: Context): TradingViewModel =
-    TradingViewModel(DefaultTradingRepository(AndroidLedgerStorage(context)))
+    TradingViewModel(com.pawan.kmpnativeuitrading.features.trading.data.local.LocalTradingSession(DefaultTradingRepository(AndroidLedgerStorage(context))))

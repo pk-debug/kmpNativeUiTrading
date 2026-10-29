@@ -31,4 +31,4 @@ internal class AndroidSessionRepository(context: Context) : SessionRepository {
 }
 
 fun createAuthViewModel(context: Context): AuthViewModel =
-    AuthViewModel(AndroidSessionRepository(context))
+    AuthViewModel(com.pawan.kmpnativeuitrading.features.auth.data.local.LocalAuthSession(AndroidSessionRepository(context)))

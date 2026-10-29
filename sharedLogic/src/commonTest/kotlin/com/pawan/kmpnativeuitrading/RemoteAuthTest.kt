@@ -34,7 +34,7 @@ class RemoteAuthTest {
         val client = configureTradingClient(HttpClient(engine))
         val remote = RemoteAccount("https://example.com", client, cache, storageDispatcher = StandardTestDispatcher(testScheduler))
         var cleared = false
-        val auth = AuthViewModel(sessions, remote, onSignedOut = { cleared = true }, scope = this)
+        val auth = AuthViewModel(com.pawan.kmpnativeuitrading.features.auth.data.remote.ServerAuthSession(remote), onSignedOut = { cleared = true }, scope = this)
         auth.login("alice", "long-passphrase-123")
         advanceUntilIdle()
         assertTrue(auth.state.isLoggedIn)

@@ -25,6 +25,7 @@ jobs:
           ref: 7bac27ca60fe799a40ec9a11bec7b04d8ff78317
           path: .backend
       - run: python tools/check_architecture.py
+      - run: python -m unittest discover -s tools/tests
       - run: pip install -r .backend/paper-trading-api/requirements.lock
       - name: Build, lint and test against the local API
         run: |

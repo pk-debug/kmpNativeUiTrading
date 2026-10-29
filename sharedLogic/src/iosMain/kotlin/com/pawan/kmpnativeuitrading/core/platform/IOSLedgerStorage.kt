@@ -22,4 +22,4 @@ internal class IOSLedgerStorage : LedgerStorage {
 }
 
 fun createTradingViewModel(): TradingViewModel =
-    TradingViewModel(DefaultTradingRepository(IOSLedgerStorage()))
+    TradingViewModel(com.pawan.kmpnativeuitrading.features.trading.data.local.LocalTradingSession(DefaultTradingRepository(IOSLedgerStorage())))

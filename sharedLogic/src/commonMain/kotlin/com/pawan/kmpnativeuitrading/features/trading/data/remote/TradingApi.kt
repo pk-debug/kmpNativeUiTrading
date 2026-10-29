@@ -47,7 +47,15 @@ interface RetryStorage {
     fun toLedger() = TradingLedger(cash, positions, orders.map(ApiOrder::toDomain), watchlist)
 }
 
-class ApiFailure(val status: Int, message: String) : Exception(message)
+class ApiFailure(val status: Int, message: String) : com.pawan.kmpnativeuitrading.core.domain.AccountFailure(
+    when (status) {
+        401 -> com.pawan.kmpnativeuitrading.core.domain.FailureKind.UNAUTHENTICATED
+        409 -> com.pawan.kmpnativeuitrading.core.domain.FailureKind.CONFLICT
+        429 -> com.pawan.kmpnativeuitrading.core.domain.FailureKind.RATE_LIMITED
+        in 400..499 -> com.pawan.kmpnativeuitrading.core.domain.FailureKind.INVALID_INPUT
+        else -> com.pawan.kmpnativeuitrading.core.domain.FailureKind.UNAVAILABLE
+    }, message,
+)
 
 /** TLS remains enabled. We use deadlines but never automatically retry a money-changing POST. */
 fun configureTradingClient(client: HttpClient) = client.config {
@@ -65,14 +73,13 @@ fun configureTradingClient(client: HttpClient) = client.config {
 class RemoteAccount(
     baseUrl: String,
     private val client: HttpClient,
-    private val retries: RetryStorage,
+    retries: RetryStorage,
     allowLocalHttp: Boolean = false,
-    private val storageDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    storageDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : AccountGateway, AuthGateway {
     private val root = baseUrl.trimEnd('/')
     private var token: String? = null
-    private var username: String? = null
-    private val json = Json { ignoreUnknownKeys = true }
+    private val journal = PendingOrderJournal(root, retries, storageDispatcher)
     init {
         val url = Url(root)
         require(url.protocol == URLProtocol.HTTPS || (allowLocalHttp && url.protocol == URLProtocol.HTTP && url.host in setOf("localhost", "127.0.0.1", "10.0.2.2"))) {
@@ -83,18 +90,13 @@ class RemoteAccount(
         }
     }
     // Rendering must never read disk or decode JSON. Load once when authenticating.
-    var pending: PendingOrder? = null
-        private set
+    val pending: PendingOrder? get() = journal.pending
 
     override suspend fun authenticate(name: String, password: String, register: Boolean) {
         val session: SessionResponse = request(if (register) "/api/v2/auth/register" else "/api/v2/auth/login", HttpMethod.Post, Credentials(name, password))
         val normalized = name.lowercase()
-        val restored = withContext(storageDispatcher) {
-            retries.read("pending:$root:$normalized")?.let { json.decodeFromString<PendingOrder>(it) }
-        }
+        journal.restore(normalized)
         token = session.token
-        username = normalized
-        pending = restored
     }
 
     override val hasPendingOrder: Boolean get() = pending != null
@@ -147,16 +149,10 @@ class RemoteAccount(
 
     override suspend fun deleteAccount() { request<Unit>("/api/v2/account", HttpMethod.Delete); savePending(null); clearSession() }
     override suspend fun revokeSession() { request<Unit>("/api/v2/auth/logout", HttpMethod.Post) }
-    override fun clearSession() { token = null; username = null; pending = null }
+    override fun clearSession() { token = null; journal.clearMemory() }
     fun close() { clearSession(); client.close() }
 
-    private suspend fun savePending(order: PendingOrder?) {
-        val key = "pending:$root:${checkNotNull(username)}"
-        withContext(storageDispatcher) {
-            retries.write(key, order?.let { json.encodeToString(it) })
-        }
-        pending = order
-    }
+    private suspend fun savePending(order: PendingOrder?) = journal.persist(order)
 
     private suspend inline fun <reified T> request(path: String, method: HttpMethod = HttpMethod.Get, body: Credentials? = null): T {
         val response = client.request("$root$path") {

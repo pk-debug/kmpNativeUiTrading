@@ -50,3 +50,8 @@ The shared code is now organized into auth/trading features with pure domain gat
 The host suite now executes 17 tests, including regression assertions that retry-state reads do not touch storage, search reuses portfolio valuation, and local history retains only the latest 500 entries. The moved backend's 11 tests also pass. A loopback-only read-load probe and debug-only Android frame-duration diagnostics are included; the device collector has not been exercised on a phone.
 
 `docs/PERFORMANCE.md` records the local catalog-only probe and its limitations. No 50K-DAU capacity, 100M-user capacity or zero-jank guarantee was established. There is no deployed environment or mobile-store build available for production/device measurements. iOS feature/package integration still requires a Mac/Xcode build and device QA.
+
+
+## SOLID/DRY responsibility cleanup — 29 October 2026
+
+Local/server execution moved behind domain AuthSession and TradingSession contracts. ViewModels no longer import transport failures or choose behavior through a nullable HTTP client. Retry persistence moved into PendingOrderJournal; valuation and missing-price behavior have one use case. Android shares design tokens; SwiftUI responsibilities now have separate files. Architecture guard tests reject presentation-to-data imports and qualified-reference bypasses. See DESIGN-PRINCIPLES.md for exact contracts and remaining limitations.
