@@ -63,8 +63,18 @@ struct DiscoverScreen: View {
                     .padding(13)
                     .background(.white, in: RoundedRectangle(cornerRadius: 14))
 
+                    Picker("Sort sample stocks", selection: Binding(get: { model.state.marketSort }, set: { model.viewModel.setMarketSort(value: $0) })) {
+                        Text("A–Z").tag("NAME")
+                        Text("Top gainers").tag("GAINERS")
+                        Text("Top losers").tag("LOSERS")
+                    }.pickerStyle(.segmented)
+                    Picker("Sector", selection: Binding(get: { model.state.selectedCategory }, set: { model.viewModel.setMarketCategory(value: $0) })) {
+                        Text("All sectors").tag("")
+                        ForEach(model.state.marketCategories, id: \.self) { sector in Text(sector).tag(sector) }
+                    }
+                    Text("Rankings use illustrative changes, not live performance.").font(.caption)
                     if model.state.filteredAssets.isEmpty {
-                        EmptyMessage(text: "No sample stocks match your search.")
+                        EmptyMessage(text: "No stocks match. Clear your search or select All sectors.")
                     } else {
                         ForEach(model.state.filteredAssets, id: \.symbol) { asset in
                             AssetRow(asset: asset)
@@ -73,6 +83,7 @@ struct DiscoverScreen: View {
                         }
                     }
                 }
+                LearningBasics()
                 DemoDisclaimer()
             }
             .padding(20)

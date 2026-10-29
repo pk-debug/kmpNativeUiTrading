@@ -4,13 +4,14 @@ Northstar uses familiar retail-trading patterns with original branding. It does 
 
 | Capability | Current behavior |
 |---|---|
-| Discover and search | Seven synthetic INR stocks and three sample indexes; local ticker/company search |
+| Discover and search | Seven synthetic INR stocks and three sample indexes; ticker/company search, sector filtering and deterministic A–Z/gainer/loser ranking of synthetic changes |
 | Asset detail | Price/change, sector, illustrative sparkline; no historical-data claim |
 | Watchlist | Add/remove; local persistence in offline mode or isolated server persistence in API mode |
-| Orders | Whole-share synthetic market buys/sells, review before submission, server rejection for insufficient funds/holdings |
+| Orders | Whole-share synthetic market buys/sells, whole-paise value/cash/affordability preview, review before submission, server rejection for insufficient funds/holdings |
 | Reliability | Explicit same-UUID retry after an ambiguous API response, including after restart; no silent queue |
 | Portfolio | Cash, holdings, average cost, market value and unrealized P/L; excludes fees/taxes |
 | Activity | Completed paper orders; API snapshot includes the latest 500 orders |
+| Learning | Shared beginner lessons on market orders, diversification and fees, with native expandable controls |
 | Account | Offline demo entry, API signup/login, expiring sessions, sign out, permanent API account deletion |
 | Release engineering | Debug APK, unsigned/signed-when-configured AAB, R8, CI definitions, iOS icon/privacy/build configuration |
 | Future real execution | Adapter contract and a tested policy that rejects LIVE; no broker implementation |
