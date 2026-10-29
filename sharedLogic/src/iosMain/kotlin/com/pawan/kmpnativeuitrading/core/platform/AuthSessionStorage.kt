@@ -24,4 +24,4 @@ internal class IOSSessionRepository : SessionRepository {
     }
 }
 
-fun createAuthViewModel(): AuthViewModel = AuthViewModel(IOSSessionRepository())
+fun createAuthViewModel(): AuthViewModel = AuthViewModel(com.pawan.kmpnativeuitrading.features.auth.data.local.LocalAuthSession(IOSSessionRepository()))

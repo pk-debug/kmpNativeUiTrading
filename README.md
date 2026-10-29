@@ -56,6 +56,7 @@ For a physical device or release build use a reachable **HTTPS** API origin, e.g
 ## Engineering and release guides
 
 - [Feature scope and future work](docs/FEATURES.md)
+- [Design principles and contract boundaries](docs/DESIGN-PRINCIPLES.md)
 - [Architecture and beginner walkthrough](docs/ARCHITECTURE.md)
 - [API contract and backend deployment](docs/API.md)
 - [Security decisions and limits](docs/SECURITY.md)

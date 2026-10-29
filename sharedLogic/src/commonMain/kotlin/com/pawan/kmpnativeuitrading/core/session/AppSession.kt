@@ -11,7 +11,7 @@ import com.pawan.kmpnativeuitrading.features.trading.data.remote.RemoteAccount
 
 /** A tiny composition root: both native UIs share one authenticated account. */
 class AppSession(repository: TradingRepository, sessions: SessionRepository, private val remote: RemoteAccount? = null) {
-    val trading = TradingViewModel(repository, remote = remote)
-    val auth = AuthViewModel(sessions, remote, trading::refresh, trading::clearRemoteState)
+    val trading = TradingViewModel(if (remote == null) com.pawan.kmpnativeuitrading.features.trading.data.local.LocalTradingSession(repository) else com.pawan.kmpnativeuitrading.features.trading.data.remote.ServerTradingSession(remote))
+    val auth = AuthViewModel(if (remote == null) com.pawan.kmpnativeuitrading.features.auth.data.local.LocalAuthSession(sessions) else com.pawan.kmpnativeuitrading.features.auth.data.remote.ServerAuthSession(remote), trading::refresh, trading::clearRemoteState)
     fun close() { trading.close(); auth.close(); remote?.close() }
 }

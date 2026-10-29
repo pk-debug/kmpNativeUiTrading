@@ -16,15 +16,15 @@ class WatchlistTest {
             override fun writeLedger(value: String) { data = value }
         }
         val repo = DefaultTradingRepository(storage)
-        val model = TradingViewModel(repo)
+        val model = TradingViewModel(com.pawan.kmpnativeuitrading.features.trading.data.local.LocalTradingSession(repo))
         val valuation = model.state.portfolio
         model.setSearchText("TCS")
         assertSame(valuation, model.state.portfolio, "Search must reuse the portfolio valuation")
         model.toggleWatchlist("TCS")
         model.toggleWatchlist("UNKNOWN")
         assertTrue(model.placeOrder("RELIANCE", true, 1).accepted)
-        assertEquals(listOf("TCS"), TradingViewModel(repo).state.watchlist)
+        assertEquals(listOf("TCS"), TradingViewModel(com.pawan.kmpnativeuitrading.features.trading.data.local.LocalTradingSession(repo)).state.watchlist)
         model.toggleWatchlist("TCS")
-        assertEquals(emptyList(), TradingViewModel(repo).state.watchlist)
+        assertEquals(emptyList(), TradingViewModel(com.pawan.kmpnativeuitrading.features.trading.data.local.LocalTradingSession(repo)).state.watchlist)
     }
 }

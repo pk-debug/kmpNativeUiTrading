@@ -64,11 +64,11 @@ class SharedLogicCommonTest {
     @Test
     fun demoSessionRestoresAndSignOutClearsTheSavedPhone() {
         val sessionRepository = MemorySessionRepository()
-        val loginViewModel = AuthViewModel(sessionRepository)
+        val loginViewModel = AuthViewModel(com.pawan.kmpnativeuitrading.features.auth.data.local.LocalAuthSession(sessionRepository))
         val (success) = loginViewModel.login("+91 98765 43210", "demo-passphrase")
 
         assertEquals(expected = true, actual = success)
-        assertEquals(expected = true, actual = AuthViewModel(sessionRepository).state.isLoggedIn)
+        assertEquals(expected = true, actual = AuthViewModel(com.pawan.kmpnativeuitrading.features.auth.data.local.LocalAuthSession(sessionRepository)).state.isLoggedIn)
 
         loginViewModel.signOut()
 

@@ -3,6 +3,7 @@
  */
 package com.pawan.kmpnativeuitrading.features.trading.ui
 
+import com.pawan.kmpnativeuitrading.core.design.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -73,11 +74,7 @@ import com.pawan.kmpnativeuitrading.features.auth.presentation.AuthViewModel
 import java.text.NumberFormat
 import java.util.Locale
 
-private val Ink = Color(0xFF152B2A)
-private val Muted = Color(0xFF71817D)
-private val Green = Color(0xFF138A63)
-private val Red = Color(0xFFD45656)
-private val BackgroundColor = Color(0xFFF5F7F5)
+
 private val Currency = NumberFormat.getCurrencyInstance(Locale.Builder().setLanguage("en").setRegion("IN").build()).apply {
     maximumFractionDigits = 2
 }
