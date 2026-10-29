@@ -55,3 +55,9 @@ The host suite now executes 17 tests, including regression assertions that retry
 ## SOLID/DRY responsibility cleanup — 29 October 2026
 
 Local/server execution moved behind domain AuthSession and TradingSession contracts. ViewModels no longer import transport failures or choose behavior through a nullable HTTP client. Retry persistence moved into PendingOrderJournal; valuation and missing-price behavior have one use case. Android shares design tokens; SwiftUI responsibilities now have separate files. Architecture guard tests reject presentation-to-data imports and qualified-reference bypasses. See DESIGN-PRINCIPLES.md for exact contracts and remaining limitations.
+
+## Competitor-oriented paper UX improvements — 29 October 2026
+
+Discovery now combines query, sector and deterministic A–Z/gainer/loser ranking. Both native detail screens use the shared whole-paise order preview and display affordability/holding information; the ViewModel repeats preflight checks before calling the execution strategy. Shared educational lessons are presented through native expandable controls.
+
+The updated shared/host suite executes 26 tests with zero failures/errors/skips, including six new discovery/preview tests. The backend's 11 tests, four architecture-guard tests, the 65-source architecture check, Android debug/release builds and lint pass. SwiftUI code remains unbuilt in this Linux environment; Xcode and device accessibility/UX QA remain required. Competitor site requests were blocked by network policy, so current fees/features and comparative reliability were not independently verified. See COMPETITIVE-REVIEW.md.

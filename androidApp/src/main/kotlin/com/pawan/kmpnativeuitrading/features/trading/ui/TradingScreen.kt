@@ -4,6 +4,8 @@
 package com.pawan.kmpnativeuitrading.features.trading.ui
 
 import com.pawan.kmpnativeuitrading.core.design.*
+import androidx.compose.foundation.horizontalScroll
+import com.pawan.kmpnativeuitrading.features.learning.ui.LearningBasics
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -143,12 +145,16 @@ fun TradingApp(viewModel: TradingViewModel, onSignOut: () -> Unit, onDeleteAccou
                 0 -> DiscoverScreen(
                     state = stateHolder.value,
                     onSearch = viewModel::setSearchText,
+                    onCategory = viewModel::setMarketCategory,
+                    onSort = viewModel::setMarketSort,
                     onAssetSelected = { selectedAsset = it },
                     modifier = Modifier.padding(padding),
                 )
                 1 -> DiscoverScreen(
                     state = stateHolder.value.copy(filteredAssets = stateHolder.value.filteredAssets.filter { it.symbol in stateHolder.value.watchlist }),
                     onSearch = viewModel::setSearchText,
+                    onCategory = viewModel::setMarketCategory,
+                    onSort = viewModel::setMarketSort,
                     onAssetSelected = { selectedAsset = it },
                     modifier = Modifier.padding(padding),
                     watchlistOnly = true,
@@ -166,7 +172,7 @@ fun TradingApp(viewModel: TradingViewModel, onSignOut: () -> Unit, onDeleteAccou
     if (showAccount) AlertDialog(
         onDismissRequest = { showAccount = false },
         title = { Text("Your paper account") },
-        text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(if (stateHolder.value.isRemote) "API mode · INR · synthetic prices" else "Offline mode · INR · synthetic prices")
             Text("No deposits, withdrawals or real exchange orders. Watchlists and holdings are practice data.")
             Text("Privacy: no advertising or analytics SDK. API mode sends credentials over HTTPS and stores account activity on your server. Sessions expire after 8 hours and are kept only in memory on the phone.")
@@ -192,6 +198,7 @@ fun TradingApp(viewModel: TradingViewModel, onSignOut: () -> Unit, onDeleteAccou
             asset = asset,
             state = stateHolder.value,
             onWatch = { viewModel.toggleWatchlist(asset.symbol) },
+            onPreview = { buy, count -> viewModel.previewOrder(asset.symbol, buy, count) },
             onDismiss = { selectedAsset = null },
         ) { isBuy, quantity -> viewModel.placeOrder(asset.symbol, isBuy, quantity) }
     }
@@ -201,6 +208,8 @@ fun TradingApp(viewModel: TradingViewModel, onSignOut: () -> Unit, onDeleteAccou
 private fun DiscoverScreen(
     state: TradingState,
     onSearch: (String) -> Unit,
+    onCategory: (String) -> Unit,
+    onSort: (String) -> Unit,
     onAssetSelected: (MarketAsset) -> Unit,
     modifier: Modifier = Modifier,
     watchlistOnly: Boolean = false,
@@ -243,12 +252,27 @@ private fun DiscoverScreen(
                 shape = RoundedCornerShape(14.dp),
             )
         }
+        item {
+            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                listOf("NAME" to "A–Z", "GAINERS" to "Top gainers", "LOSERS" to "Top losers").forEach { (key, label) ->
+                    TextButton(onClick = { onSort(key) }) { Text(if (state.marketSort == key) "✓ $label" else label) }
+                }
+            }
+            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                (listOf("") + state.marketCategories).forEach { sector ->
+                    val label = sector.ifEmpty { "All sectors" }
+                    TextButton(onClick = { onCategory(sector) }) { Text(if (state.selectedCategory == sector) "✓ $label" else label) }
+                }
+            }
+            Text("Rankings use illustrative changes, not live performance.", color = Muted, fontSize = 11.sp)
+        }
         if (state.filteredAssets.isEmpty()) {
-            item { Text(if (watchlistOnly) "Your watchlist is empty. Open a stock in Discover and choose Add to watchlist." else "No sample stocks match your search.", color = Muted, modifier = Modifier.padding(12.dp)) }
+            item { Text(if (watchlistOnly) "No watched stocks match these filters. Clear your search or add a stock from Discover." else "No stocks match. Clear your search or choose All sectors.", color = Muted, modifier = Modifier.padding(12.dp)) }
         }
         items(state.filteredAssets, key = MarketAsset::symbol) { asset ->
             AssetRow(asset) { onAssetSelected(asset) }
         }
+        item { LearningBasics() }
         item { DemoDisclaimer() }
     }
 }
@@ -455,6 +479,7 @@ private fun AssetDetailDialog(
     state: TradingState,
     onDismiss: () -> Unit,
     onWatch: () -> Unit,
+    onPreview: (Boolean, Int) -> com.pawan.kmpnativeuitrading.features.trading.domain.usecase.OrderPreview?,
     onOrder: (Boolean, Int) -> Unit,
 ) {
     var quantity by remember { mutableStateOf("1") }
@@ -465,7 +490,7 @@ private fun AssetDetailDialog(
         AlertDialog(
             onDismissRequest = { reviewBuy = null },
             title = { Text("Review paper order") },
-            text = { Text("${if (reviewBuy == true) "BUY" else "SELL"} $reviewQuantity ${asset.symbol} shares\nEstimated value ${money(asset.price * reviewQuantity)}\nSynthetic market price · no real money") },
+            text = { Text("${if (reviewBuy == true) "BUY" else "SELL"} $reviewQuantity ${asset.symbol} shares\nEstimated value ${money(asset.price * reviewQuantity)}\nEstimated cash after ${money(onPreview(reviewBuy == true, reviewQuantity)?.cashAfter ?: state.cash)}\nSynthetic market price · excludes fees/taxes · no real money") },
             confirmButton = { TextButton(onClick = { onOrder(reviewBuy == true, reviewQuantity); reviewBuy = null; onDismiss() }, enabled = !state.isBusy && !state.canRetryOrder) { Text("Confirm paper order") } },
             dismissButton = { TextButton(onClick = { reviewBuy = null }) { Text("Back") } },
         )
@@ -480,7 +505,7 @@ private fun AssetDetailDialog(
             }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(money(asset.price), color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     Text(
@@ -500,6 +525,10 @@ private fun AssetDetailDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                 )
+                val buyPreview = onPreview(true, quantity.toIntOrNull() ?: 0)
+                Text("Estimated value ${money(buyPreview?.estimatedValue ?: 0.0)}", color = Ink)
+                Text("Max buy ${buyPreview?.maxBuyQuantity ?: 0} shares · Owned ${buyPreview?.ownedQuantity ?: 0}", color = Muted, fontSize = 12.sp)
+                Text("Estimate excludes fees/taxes. Server validation is final.", color = Muted, fontSize = 11.sp)
                 validation?.let { Text(it, color = Red, fontSize = 12.sp) }
             }
         },
@@ -510,8 +539,9 @@ private fun AssetDetailDialog(
                         val count = quantity.toIntOrNull()
                         if ((count == null) || (count !in 1..1_000_000)) validation = "Enter at least one whole share."
                         else {
-                            reviewQuantity = count
-                            reviewBuy = true
+                            val estimate = onPreview(true, count)
+                            if (estimate?.canSubmit == true) { reviewQuantity = count; reviewBuy = true }
+                            else validation = estimate?.error ?: "Refresh this quote."
                         }
                     },
                     enabled = !state.isBusy && !state.canRetryOrder,
@@ -522,8 +552,9 @@ private fun AssetDetailDialog(
                         val count = quantity.toIntOrNull()
                         if ((count == null) || (count !in 1..1_000_000)) validation = "Enter at least one whole share."
                         else {
-                            reviewQuantity = count
-                            reviewBuy = false
+                            val estimate = onPreview(false, count)
+                            if (estimate?.canSubmit == true) { reviewQuantity = count; reviewBuy = false }
+                            else validation = estimate?.error ?: "Refresh this quote."
                         }
                     },
                     enabled = !state.isBusy && !state.canRetryOrder,

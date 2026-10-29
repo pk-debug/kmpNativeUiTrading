@@ -64,6 +64,10 @@ struct AssetDetailScreen: View {
                                 .padding(14)
                                 .background(.white, in: RoundedRectangle(cornerRadius: 14))
 
+                            let preview = model.viewModel.previewOrder(symbol: asset.symbol, isBuy: true, quantity: Int32(quantityText) ?? 0)
+                            Text("Estimated value \(formatMoney(preview?.estimatedValue ?? 0))")
+                            Text("Max buy \(preview?.maxBuyQuantity ?? 0) · Owned \(preview?.ownedQuantity ?? 0)").font(.caption)
+                            Text("Estimate excludes fees/taxes. Server validation is final.").font(.caption)
                             HStack(spacing: 12) {
                                 orderButton("Simulate buy", isBuy: true, asset: asset)
                                 orderButton("Simulate sell", isBuy: false, asset: asset)
@@ -93,7 +97,7 @@ struct AssetDetailScreen: View {
                     showReview = false
                 }
             } message: {
-                Text("\(reviewBuy ? "BUY" : "SELL") \(reviewQuantity) \(asset?.symbol ?? "") · estimated \(formatMoney((asset?.price ?? 0) * Double(reviewQuantity))) · no real money")
+                Text("\(reviewBuy ? "BUY" : "SELL") \(reviewQuantity) \(asset?.symbol ?? "") · estimated \(formatMoney((asset?.price ?? 0) * Double(reviewQuantity))) · cash after \(formatMoney(model.viewModel.previewOrder(symbol: asset?.symbol ?? "", isBuy: reviewBuy, quantity: reviewQuantity)?.cashAfter ?? model.state.cash)) · excludes fees/taxes · no real money")
             }
             .alert("Demo order", isPresented: Binding(
                 get: { resultMessage != nil },
@@ -110,6 +114,10 @@ struct AssetDetailScreen: View {
         Button(title) {
             guard let quantity = Int32(quantityText), quantity >= 1, quantity <= 1_000_000 else {
                 resultMessage = "Enter a whole-share quantity of at least 1."
+                return
+            }
+            guard let preview = model.viewModel.previewOrder(symbol: asset.symbol, isBuy: isBuy, quantity: quantity), preview.canSubmit else {
+                resultMessage = model.viewModel.previewOrder(symbol: asset.symbol, isBuy: isBuy, quantity: quantity)?.error ?? "Refresh this quote."
                 return
             }
             reviewQuantity = quantity

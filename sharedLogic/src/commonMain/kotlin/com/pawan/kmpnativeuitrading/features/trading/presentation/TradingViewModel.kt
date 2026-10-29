@@ -27,6 +27,26 @@ class TradingViewModel(
     private val observers = mutableMapOf<Long, TradingStateObserver>()
     private var nextObserverId = 0L
     private var searchText = ""
+    private var category = ""
+    private var sort = "NAME"
+    private val discover = com.pawan.kmpnativeuitrading.features.trading.domain.usecase.DiscoverAssetsUseCase()
+    private val preview = com.pawan.kmpnativeuitrading.features.trading.domain.usecase.PreviewOrderUseCase()
+
+    fun setMarketCategory(value: String) {
+        if (value.isNotEmpty() && assets.none { it.category == value }) return
+        if (category == value) return
+        category = value
+        publish()
+    }
+    fun setMarketSort(value: String) {
+        if (value !in listOf("NAME", "GAINERS", "LOSERS") || sort == value) return
+        sort = value
+        publish()
+    }
+    fun previewOrder(symbol: String, isBuy: Boolean, quantity: Int): com.pawan.kmpnativeuitrading.features.trading.domain.usecase.OrderPreview? {
+        val asset = assets.find { it.symbol == symbol } ?: return null
+        return preview(asset, isBuy, quantity, ledger.cash, ledger.positions.find { it.symbol == symbol }?.quantity ?: 0)
+    }
     private var lastMessage: String? = null
     private var ledger: TradingLedger = session.initialLedger
     private var assets = MarketCatalog.assets
@@ -117,6 +137,12 @@ class TradingViewModel(
     fun placeOrder(symbol: String, isBuy: Boolean, quantity: Int): OrderResult {
         if (busy) return OrderResult(false, "Please wait for the current request.")
         if (quantity !in 1..1_000_000 || assets.none { it.symbol == symbol }) return OrderResult(false, "Choose a valid stock and whole-share quantity.")
+        val preflight = previewOrder(symbol, isBuy, quantity)
+        if (preflight?.error != null) {
+            lastMessage = preflight.error
+            publish()
+            return OrderResult(false, checkNotNull(preflight.error))
+        }
         var result = OrderResult(true, "Submitting paper order…")
         busy = true
         publish()
@@ -147,7 +173,10 @@ class TradingViewModel(
         orders = ledger.orders,
         assets = assets,
         indexes = indexes,
-        filteredAssets = assets.filter { it.symbol.contains(searchText.trim(), true) || it.companyName.contains(searchText.trim(), true) },
+        filteredAssets = discover(assets, searchText, category, sort),
+        marketCategories = assets.map { it.category }.distinct().sorted(),
+        selectedCategory = category,
+        marketSort = sort,
         searchText = searchText,
         portfolio = derivedPortfolio,
         lastMessage = lastMessage,
